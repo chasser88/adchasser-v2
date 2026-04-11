@@ -1,3 +1,4 @@
+import logo from "./assets/AdChasser_Logo.png"
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase.js'
@@ -19,6 +20,13 @@ import NotFoundPage    from './pages/NotFoundPage.jsx'
 export const ADMIN_EMAIL = 'charlzillion@gmail.com'
 
 const Loader = () => (
+  <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#07090F', gap:'20px' }}>
+    <style>{`@keyframes pulse{0%,100%{opacity:0.5;transform:scale(0.9)}50%{opacity:1;transform:scale(1.08)}}`}</style>
+    <img src={logo} alt='AdChasser' style={{ width:'72px', height:'72px', objectFit:'contain', animation:'pulse 1.8s ease-in-out infinite' }} />
+    <p style={{ fontSize:'11px', color:'#5a5a6e', letterSpacing:'3px', textTransform:'uppercase', fontFamily:'system-ui' }}>Loading...</p>
+  </div>
+)
+const _OldLoader = () => (
   <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg }}>
     <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: `3px solid ${C.gold}30`, borderTopColor: C.gold, animation: 'spin 0.8s linear infinite' }} />

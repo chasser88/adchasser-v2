@@ -1,3 +1,4 @@
+import logo from "../../assets/AdChasser_Logo.png"
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { C, F } from '../../tokens.js'
@@ -27,7 +28,7 @@ export default function SiteNav({ user }) {
       `}</style>
       <nav style={{ position:'sticky', top:0, zIndex:100, background:'rgba(7,9,15,0.96)', backdropFilter:'blur(20px)', borderBottom:`1px solid ${C.border}`, padding:'0 5%', height:'60px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <Link to="/" style={{ display:'flex', alignItems:'center', gap:'9px', textDecoration:'none' }}>
-          <div style={{ width:'30px', height:'30px', borderRadius:'8px', background:`linear-gradient(135deg,${C.gold},${C.goldLight})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', fontWeight:700, color:C.bg, fontFamily:F.sans }}>A</div>
+          <img src={logo} alt="AdChasser" style={{ width:"30px", height:"30px", objectFit:"contain" }} />
           <span style={{ fontSize:'16px', fontWeight:700, fontFamily:F.sans, color:C.text, letterSpacing:'-0.3px' }}>AdChasser</span>
         </Link>
         <div className="sn-desk" style={{ display:'flex', gap:'4px', position:'absolute', left:'50%', transform:'translateX(-50%)' }}>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import logo from '../../assets/AdChasser_Logo.png'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { C, F } from '../../tokens.js'
 import { supabase } from '../../lib/supabase.js'
@@ -41,7 +42,7 @@ export default function AppNav({ user, activeCampaign }) {
         {/* Logo — always goes home */}
         <div style={{ display:'flex', alignItems:'center', gap:'16px' }}>
           <Link to="/" style={{ display:'flex', alignItems:'center', gap:'8px', textDecoration:'none', flexShrink:0 }}>
-            <div style={{ width:'26px', height:'26px', borderRadius:'7px', background:`linear-gradient(135deg,${C.gold},${C.goldLight})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:700, color:C.bg, fontFamily:F.sans }}>A</div>
+            <img src={logo} alt='AdChasser' style={{ width:'28px', height:'28px', objectFit:'contain' }} />
             <span style={{ fontSize:'14px', fontWeight:700, fontFamily:F.sans, color:C.text, letterSpacing:'-0.3px' }}>AdChasser</span>
           </Link>
 
