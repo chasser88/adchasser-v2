@@ -167,3 +167,15 @@ export function useRealtimeResponses(campaignId, onNewResponse) {
     return () => supabase.removeChannel(channel)
   }, [campaignId, onNewResponse])
 }
+
+// ── CAMPAIGN MUTATIONS ─────────────────────────────────────────────
+export async function updateCampaign(id, payload) {
+  const { data, error } = await supabase.from('campaigns').update(payload).eq('id', id).select('*, brands(name, category, logo_char, color)').single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteCampaign(id) {
+  const { error } = await supabase.from('campaigns').delete().eq('id', id)
+  if (error) throw error
+}
