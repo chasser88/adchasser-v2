@@ -107,8 +107,8 @@ export async function uploadAsset(params) {
   return await uploadAssetFn(params)
 }
 
-export async function deleteAsset(assetId) {
-  return await deleteAssetFn(assetId)
+export async function deleteAsset(params) {
+  return await deleteAssetFn(params)
 }
 
 // ── RESPONSES & ANALYTICS ─────────────────────────────────────────
