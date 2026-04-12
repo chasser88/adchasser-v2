@@ -2,7 +2,17 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, F, CHART_COLORS } from '../tokens.js'
 import { Card, GoldButton, Badge, Spinner, EmptyState } from './shared/ui.jsx'
-import { useBrands, useCampaigns, updateCampaign, deleteCampaign } from '../hooks.js'
+import { useBrands, useCampaigns, updateCampaign, deleteCampaign, uploadAsset } from '../hooks.js'
+import { deleteAsset } from '../lib/storage.js'
+import { supabase } from '../lib/supabase.js'
+
+const ASSET_ZONES = [
+  { key: 'video',  icon: '🎬', label: 'TVC & Digital Video',   ext: 'MP4, MOV',           accept: 'video/mp4,video/quicktime',                    desc: 'TV commercials · digital pre-rolls · social video' },
+  { key: 'audio',  icon: '🔊', label: 'Radio & Audio',         ext: 'MP3, WAV',            accept: 'audio/mpeg,audio/wav',                         desc: 'Radio spots · podcast ads · audio branding' },
+  { key: 'static', icon: '🖼️', label: 'OOH & Static Digital', ext: 'JPG, PNG, WEBP, SVG', accept: 'image/jpeg,image/png,image/webp,image/svg+xml', desc: 'Billboards · press · digital display · social statics' },
+]
+
+const ASSET_TYPE_ICON = { video: '🎬', audio: '🔊', static: '🖼️' }
 
 export default function PlatformLanding({ setView, setActiveBrand, setActiveCampaign }) {
   const navigate = useNavigate()
@@ -16,6 +26,16 @@ export default function PlatformLanding({ setView, setActiveBrand, setActiveCamp
   const [saving, setSaving] = useState(false)
   const [copyMsg, setCopyMsg] = useState(null)
   const campaignRef = useRef(null)
+
+  // ── Asset management state ──────────────────────────────────────
+  const [managingAssets,  setManagingAssets]  = useState(false)
+  const [assetCampaign,   setAssetCampaign]   = useState(null)
+  const [campaignAssets,  setCampaignAssets]  = useState([])
+  const [assetFiles,      setAssetFiles]      = useState({ video: [], audio: [], static: [] })
+  const [assetUploading,  setAssetUploading]  = useState(false)
+  const [assetDragOver,   setAssetDragOver]   = useState(null)
+  const [assetsLoading,   setAssetsLoading]   = useState(false)
+  const assetFileRefs = { video: useRef(), audio: useRef(), static: useRef() }
 
   const loading = bLoading || cLoading
   const filtered = (campaigns ?? []).filter(c => {
@@ -91,6 +111,66 @@ export default function PlatformLanding({ setView, setActiveBrand, setActiveCamp
     setCopyMsg(campaign.id)
     setTimeout(() => setCopyMsg(null), 2000)
   }
+
+  // ── Asset management handlers ───────────────────────────────────
+  const fetchCampaignAssets = async (campaignId) => {
+    setAssetsLoading(true)
+    const { data } = await supabase
+      .from('campaign_assets')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('sort_order')
+    setCampaignAssets(data ?? [])
+    setAssetsLoading(false)
+  }
+
+  const handleManageAssets = (e, campaign) => {
+    e.stopPropagation()
+    setMenuOpen(null)
+    setAssetCampaign(campaign)
+    setAssetFiles({ video: [], audio: [], static: [] })
+    setManagingAssets(true)
+    fetchCampaignAssets(campaign.id)
+  }
+
+  const handleDeleteAsset = async (asset) => {
+    if (!confirm(`Delete "${asset.label}"? This cannot be undone.`)) return
+    try {
+      await deleteAsset({ path: asset.storage_path, id: asset.id })
+      fetchCampaignAssets(assetCampaign.id)
+    } catch (err) { alert(err.message) }
+  }
+
+  const handleNewAssetFiles = (type, incoming) => {
+    const arr = Array.from(incoming).map(f => ({ file: f, id: Math.random().toString(36), label: f.name.replace(/\.[^.]+$/, '') }))
+    setAssetFiles(prev => ({ ...prev, [type]: [...prev[type], ...arr] }))
+  }
+
+  const removeNewFile = (type, id) => setAssetFiles(prev => ({ ...prev, [type]: prev[type].filter(f => f.id !== id) }))
+  const updateNewLabel = (type, id, label) => setAssetFiles(prev => ({ ...prev, [type]: prev[type].map(f => f.id === id ? { ...f, label } : f) }))
+
+  const handleUploadNewAssets = async () => {
+    const allFiles = [
+      ...assetFiles.video.map((f, i)  => ({ ...f, type: 'video',  order: i })),
+      ...assetFiles.audio.map((f, i)  => ({ ...f, type: 'audio',  order: i })),
+      ...assetFiles.static.map((f, i) => ({ ...f, type: 'static', order: i })),
+    ]
+    if (!allFiles.length) return
+
+    setAssetUploading(true)
+    try {
+      for (const { file, label, type, order } of allFiles) {
+        await uploadAsset({ campaignId: assetCampaign.id, assetType: type, file, label: label || file.name, sortOrder: order })
+      }
+      setAssetFiles({ video: [], audio: [], static: [] })
+      fetchCampaignAssets(assetCampaign.id)
+    } catch (err) { alert(err.message) }
+    setAssetUploading(false)
+  }
+
+  const totalNewFiles = assetFiles.video.length + assetFiles.audio.length + assetFiles.static.length
+
+  const inputStyle = { width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '10px 14px', color: C.text, fontSize: '14px', fontFamily: F.sans, outline: 'none', boxSizing: 'border-box' }
 
   return (
     <div style={{ padding: 'clamp(24px, 5vw, 48px) clamp(16px, 5vw, 40px) 80px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -219,6 +299,7 @@ export default function PlatformLanding({ setView, setActiveBrand, setActiveCamp
                             {copyMsg === c.id ? '✓ Copied!' : '🔗 Copy Survey Link'}
                           </button>
                           <button className="menu-item" onClick={e => handleEdit(e, c)} style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', color: C.text, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer', textAlign: 'left', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>✏️ Edit Details</button>
+                          <button className="menu-item" onClick={e => handleManageAssets(e, c)} style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', color: C.text, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer', textAlign: 'left', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>🖼️ Manage Assets</button>
                           {c.status !== 'active' && <button className="menu-item" onClick={e => handleStatusChange(e, c, 'active')} style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', color: C.green, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer', textAlign: 'left', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>▶ Set Active</button>}
                           {c.status !== 'paused' && c.status !== 'draft' && <button className="menu-item" onClick={e => handleStatusChange(e, c, 'paused')} style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', color: C.muted, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer', textAlign: 'left', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>⏸ Pause</button>}
                           {c.status !== 'completed' && <button className="menu-item" onClick={e => handleStatusChange(e, c, 'completed')} style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', color: C.blue, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer', textAlign: 'left', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>✓ Mark Completed</button>}
@@ -249,26 +330,124 @@ export default function PlatformLanding({ setView, setActiveBrand, setActiveCamp
         </div>
       ) : null}
 
-      {/* Edit modal */}
+      {/* ── EDIT DETAILS MODAL ── */}
       {editingCampaign && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '20px' }}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '440px' }}>
             <h2 style={{ fontSize: '18px', fontFamily: F.display, fontWeight: 700, marginBottom: '20px' }}>Edit Campaign</h2>
             <div style={{ marginBottom: '14px' }}>
               <label style={{ display: 'block', fontSize: '11px', color: C.muted, fontFamily: F.sans, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Campaign Name</label>
-              <input value={editForm.name || ''} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '10px 14px', color: C.text, fontSize: '14px', fontFamily: F.sans, outline: 'none', boxSizing: 'border-box' }} />
+              <input value={editForm.name || ''} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} style={inputStyle} />
             </div>
             <div style={{ marginBottom: '14px' }}>
               <label style={{ display: 'block', fontSize: '11px', color: C.muted, fontFamily: F.sans, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</label>
-              <textarea value={editForm.description || ''} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '10px 14px', color: C.text, fontSize: '14px', fontFamily: F.sans, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+              <textarea value={editForm.description || ''} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', fontSize: '11px', color: C.muted, fontFamily: F.sans, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Launch Date</label>
-              <input type="date" value={editForm.launched_at || ''} onChange={e => setEditForm(p => ({ ...p, launched_at: e.target.value }))} style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '10px 14px', color: C.text, fontSize: '14px', fontFamily: F.sans, outline: 'none', boxSizing: 'border-box' }} />
+              <input type="date" value={editForm.launched_at || ''} onChange={e => setEditForm(p => ({ ...p, launched_at: e.target.value }))} style={inputStyle} />
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <GoldButton onClick={handleSaveEdit} disabled={saving} style={{ flex: 1 }}>{saving ? 'Saving...' : 'Save Changes'}</GoldButton>
               <button onClick={() => setEditingCampaign(null)} style={{ flex: 1, padding: '10px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.muted, fontFamily: F.sans, fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MANAGE ASSETS MODAL ── */}
+      {managingAssets && assetCampaign && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '20px' }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '580px', maxHeight: '88vh', overflow: 'auto' }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '22px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontFamily: F.display, fontWeight: 700, marginBottom: '4px' }}>Manage Assets</h2>
+                <p style={{ fontSize: '12px', color: C.muted, fontFamily: F.sans }}>{assetCampaign.name}</p>
+              </div>
+              <button onClick={() => setManagingAssets(false)} style={{ background: 'transparent', border: 'none', color: C.muted, fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Existing assets */}
+            <div style={{ marginBottom: '24px' }}>
+              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>Current Assets</p>
+              {assetsLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}><Spinner size={20} /></div>
+              ) : campaignAssets.length === 0 ? (
+                <div style={{ padding: '18px', background: C.surface, borderRadius: '10px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
+                  <p style={{ fontSize: '13px', color: C.muted, fontFamily: F.sans }}>No assets uploaded yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {campaignAssets.map(asset => (
+                    <div key={asset.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px' }}>
+                      {/* Thumbnail for images */}
+                      {asset.asset_type === 'static' && asset.public_url ? (
+                        <img src={asset.public_url} alt={asset.label} style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: '44px', height: '44px', borderRadius: '6px', background: C.border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                          {ASSET_TYPE_ICON[asset.asset_type] ?? '📄'}
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.label}</p>
+                        <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans }}>
+                          {asset.asset_type} · {asset.file_name} {asset.file_size ? `· ${(asset.file_size / 1024 / 1024).toFixed(1)} MB` : ''}
+                        </p>
+                      </div>
+                      <button onClick={() => handleDeleteAsset(asset)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '18px', lineHeight: 1, flexShrink: 0, padding: '4px' }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Upload new assets */}
+            <div>
+              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>Upload New Assets</p>
+              {ASSET_ZONES.map(zone => (
+                <div key={zone.key} style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '14px' }}>{zone.icon}</span>
+                    <div>
+                      <p style={{ fontSize: '12px', fontWeight: 600, fontFamily: F.sans, color: C.text }}>{zone.label}</p>
+                      <p style={{ fontSize: '10px', color: C.muted, fontFamily: F.sans }}>{zone.ext}</p>
+                    </div>
+                  </div>
+                  <label
+                    onDragOver={e => { e.preventDefault(); setAssetDragOver(zone.key) }}
+                    onDragLeave={() => setAssetDragOver(null)}
+                    onDrop={e => { e.preventDefault(); setAssetDragOver(null); handleNewAssetFiles(zone.key, e.dataTransfer.files) }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', borderRadius: '10px', cursor: 'pointer', border: `2px dashed ${assetDragOver === zone.key ? C.gold : C.border}`, background: assetDragOver === zone.key ? C.goldDim : C.surface, transition: 'all 0.2s', gap: '8px' }}>
+                    <input ref={assetFileRefs[zone.key]} type="file" accept={zone.accept} multiple onChange={e => handleNewAssetFiles(zone.key, e.target.files)} style={{ display: 'none' }} />
+                    <span style={{ fontSize: '16px' }}>{zone.icon}</span>
+                    <p style={{ fontSize: '12px', fontFamily: F.sans, color: C.muted }}><span style={{ color: C.gold }}>Click to upload</span> or drag & drop</p>
+                  </label>
+                  {assetFiles[zone.key].map(f => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 11px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', marginTop: '5px' }}>
+                      <span style={{ flexShrink: 0 }}>{zone.icon}</span>
+                      <input value={f.label} onChange={e => updateNewLabel(zone.key, f.id, e.target.value)} style={{ flex: 1, background: 'transparent', border: 'none', color: C.text, fontSize: '12px', fontFamily: F.sans, outline: 'none', minWidth: '60px' }} />
+                      <span style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, whiteSpace: 'nowrap' }}>{(f.file.size / 1024 / 1024).toFixed(1)} MB</span>
+                      <button onClick={() => removeNewFile(zone.key, f.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer actions */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '20px', borderTop: `1px solid ${C.border}` }}>
+              {totalNewFiles > 0 && (
+                <GoldButton onClick={handleUploadNewAssets} disabled={assetUploading} style={{ flex: 1 }}>
+                  {assetUploading
+                    ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Spinner size={13} color={C.bg} /> Uploading...</span>
+                    : `Upload ${totalNewFiles} file${totalNewFiles > 1 ? 's' : ''}`}
+                </GoldButton>
+              )}
+              <button onClick={() => setManagingAssets(false)} style={{ flex: totalNewFiles > 0 ? 0 : 1, padding: '10px 20px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.muted, fontFamily: F.sans, fontSize: '14px', cursor: 'pointer' }}>
+                {totalNewFiles > 0 ? 'Cancel' : 'Close'}
+              </button>
             </div>
           </div>
         </div>
