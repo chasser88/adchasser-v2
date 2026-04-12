@@ -10,9 +10,9 @@ const CHANNELS = [
 ]
 
 const ASSET_ZONES = [
-  { key: 'video',  icon: '🎬', label: 'TVC & Digital Video',   ext: 'MP4, MOV',           accept: 'video/mp4,video/quicktime',                        desc: 'TV commercials · digital pre-rolls · social video' },
-  { key: 'audio',  icon: '🔊', label: 'Radio & Audio',         ext: 'MP3, WAV',            accept: 'audio/mpeg,audio/wav',                             desc: 'Radio spots · podcast ads · audio branding' },
-  { key: 'static', icon: '🖼️', label: 'OOH & Static Digital', ext: 'JPG, PNG, WEBP, PDF', accept: 'image/jpeg,image/png,image/webp,application/pdf',  desc: 'Billboards · press · digital display · social statics' },
+  { key: 'video',  icon: '🎬', label: 'TVC & Digital Video',   ext: 'MP4, MOV',           accept: 'video/mp4,video/quicktime',                   desc: 'TV commercials · digital pre-rolls · social video' },
+  { key: 'audio',  icon: '🔊', label: 'Radio & Audio',         ext: 'MP3, WAV',            accept: 'audio/mpeg,audio/wav',                        desc: 'Radio spots · podcast ads · audio branding' },
+  { key: 'static', icon: '🖼️', label: 'OOH & Static Digital', ext: 'JPG, PNG, WEBP, SVG', accept: 'image/jpeg,image/png,image/webp,image/svg+xml', desc: 'Billboards · press · digital display · social statics' },
 ]
 
 const BRAND_TYPES = [
@@ -344,7 +344,7 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
           <Card style={{ marginBottom: '12px' }}>
             <h3 style={{ fontSize: '17px', fontFamily: F.display, fontWeight: 700, marginBottom: '5px' }}>Upload Campaign Assets</h3>
             <p style={{ fontSize: '13px', color: C.muted, fontFamily: F.sans, lineHeight: 1.65, marginBottom: '20px' }}>
-              Assets are served to Track B respondents. Video and audio require 80% completion before the survey continues. PDFs are supported for OOH.
+              Assets are served to Track B respondents. Video and audio require 80% completion before the survey continues. Supported formats: MP4/MOV · MP3/WAV · JPG/PNG/WEBP/SVG.
             </p>
 
             {ASSET_ZONES.map(zone => (

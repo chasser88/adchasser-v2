@@ -18,10 +18,9 @@ export default function AssetCarousel({ assets = [], onComplete }) {
     { id: 'm3', asset_type: 'static', label: 'OOH — Billboard',    public_url: null },
   ]
 
-  const asset   = assetList[current]
-  const isMock  = !asset?.public_url
-  const isLast  = current === assetList.length - 1
-  const isPDF   = asset?.mime_type === 'application/pdf' || asset?.file_name?.toLowerCase().endsWith('.pdf')
+  const asset      = assetList[current]
+  const isMock     = !asset?.public_url
+  const isLast     = current === assetList.length - 1
   const STATIC_MIN = 5
   const VIDEO_MIN  = 80
 
@@ -159,24 +158,15 @@ export default function AssetCarousel({ assets = [], onComplete }) {
           </div>
         )}
 
-        {/* ── STATIC — Image or PDF ── */}
+        {/* ── STATIC — Image ── */}
         {asset.asset_type === 'static' && (
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
             {!isMock && asset.public_url ? (
-              isPDF ? (
-                // PDF viewer
-                <div style={{ width: '100%', maxWidth: '580px', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
-                  <iframe
-                    src={`${asset.public_url}#toolbar=0&navpanes=0&scrollbar=0`}
-                    title={asset.label}
-                    style={{ width: '100%', height: '420px', border: 'none', background: '#fff' }}
-                  />
-                </div>
-              ) : (
-                // Image viewer
-                <img src={asset.public_url} alt={asset.label}
-                  style={{ maxWidth: '100%', maxHeight: '380px', borderRadius: '10px', objectFit: 'contain' }} />
-              )
+              <img
+                src={asset.public_url}
+                alt={asset.label}
+                style={{ maxWidth: '100%', maxHeight: '380px', borderRadius: '10px', objectFit: 'contain' }}
+              />
             ) : (
               // Mock placeholder
               <div style={{ width: '100%', maxWidth: '540px', aspectRatio: '16/9', background: 'linear-gradient(135deg, #0D1424, #1A2540)', borderRadius: '12px', border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
