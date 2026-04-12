@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { C, F } from '../tokens.js'
 import { Card, GoldButton, GhostButton, Spinner, Toast } from './shared/ui.jsx'
 import { createCampaign, activateCampaign, uploadAsset, createBrand } from '../hooks.js'
+import { supabase } from '../lib/supabase.js'
 
 const CHANNELS = [
   'Instagram / Facebook', 'TikTok', 'YouTube',
@@ -9,23 +10,62 @@ const CHANNELS = [
 ]
 
 const ASSET_ZONES = [
-  { key: 'video',  icon: '🎬', label: 'TVC & Digital Video',   ext: 'MP4, MOV',           accept: 'video/mp4,video/quicktime',                       desc: 'TV commercials · digital pre-rolls · social video' },
-  { key: 'audio',  icon: '🔊', label: 'Radio & Audio',         ext: 'MP3, WAV',            accept: 'audio/mpeg,audio/wav',                            desc: 'Radio spots · podcast ads · audio branding' },
-  { key: 'static', icon: '🖼️', label: 'OOH & Static Digital', ext: 'JPG, PNG, WEBP, PDF', accept: 'image/jpeg,image/png,image/webp,application/pdf', desc: 'Billboards · press · digital display · social statics' },
+  { key: 'video',  icon: '🎬', label: 'TVC & Digital Video',   ext: 'MP4, MOV',           accept: 'video/mp4,video/quicktime',                        desc: 'TV commercials · digital pre-rolls · social video' },
+  { key: 'audio',  icon: '🔊', label: 'Radio & Audio',         ext: 'MP3, WAV',            accept: 'audio/mpeg,audio/wav',                             desc: 'Radio spots · podcast ads · audio branding' },
+  { key: 'static', icon: '🖼️', label: 'OOH & Static Digital', ext: 'JPG, PNG, WEBP, PDF', accept: 'image/jpeg,image/png,image/webp,application/pdf',  desc: 'Billboards · press · digital display · social statics' },
 ]
 
+const BRAND_TYPES = [
+  { value: 'goods',    label: 'Goods',    desc: 'Physical products bought off a shelf or online' },
+  { value: 'services', label: 'Services', desc: 'Intangible offerings — finance, telecoms, hospitality' },
+  { value: 'mixed',    label: 'Mixed',    desc: 'Brand that offers both products and services' },
+]
+
+async function uploadBrandImage(file, brandId, type) {
+  const ext = file.name.split('.').pop()
+  const path = `brands/${brandId}/${type}_${Date.now()}.${ext}`
+  const bucket = import.meta.env.VITE_STORAGE_BUCKET || 'campaign-assets'
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true })
+  if (error) throw error
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+  return data.publicUrl
+}
+
 export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign, brands = [], refetchBrands }) {
-  const [step,      setStep]      = useState(1)
-  const [form,      setForm]      = useState({ brandId: '', brandName: '', category: '', campaignName: '', launchedAt: '', channels: [], description: '' })
-  const [files,     setFiles]     = useState({ video: [], audio: [], static: [] })
-  const [uploading, setUploading] = useState(false)
-  const [campaign,  setCampaign]  = useState(null)
-  const [dragOver,  setDragOver]  = useState(null)
-  const [toast,     setToast]     = useState(null)
-  const [newBrand,  setNewBrand]  = useState(brands.length === 0)
+  const [step,       setStep]       = useState(1)
+  const [form,       setForm]       = useState({ brandId: '', brandName: '', categoryCode: '', brandType: 'goods', campaignName: '', launchedAt: '', channels: [], description: '' })
+  const [files,      setFiles]      = useState({ video: [], audio: [], static: [] })
+  const [uploading,  setUploading]  = useState(false)
+  const [campaign,   setCampaign]   = useState(null)
+  const [dragOver,   setDragOver]   = useState(null)
+  const [toast,      setToast]      = useState(null)
+  const [newBrand,   setNewBrand]   = useState(brands.length === 0)
+  const [categories, setCategories] = useState([])
+  const [logoFile,   setLogoFile]   = useState(null)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [productFile, setProductFile] = useState(null)
+  const [productPreview, setProductPreview] = useState(null)
   const fileRefs = { video: useRef(), audio: useRef(), static: useRef() }
+  const logoRef = useRef()
+  const productRef = useRef()
+
+  useEffect(() => {
+    supabase.from('categories').select('*').eq('is_active', true).order('sort_order').then(({ data }) => setCategories(data ?? []))
+  }, [])
 
   const showToast = (message, type = 'success') => { setToast({ message, type }); setTimeout(() => setToast(null), 4000) }
+
+  const handleCategoryChange = (code) => {
+    const cat = categories.find(c => c.code === code)
+    setForm(f => ({ ...f, categoryCode: code, brandType: cat?.brand_type_suggestion ?? 'goods' }))
+  }
+
+  const handleImagePick = (file, type) => {
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    if (type === 'logo') { setLogoFile(file); setLogoPreview(url) }
+    else { setProductFile(file); setProductPreview(url) }
+  }
 
   const handleFiles = (type, incoming) => {
     const arr = Array.from(incoming).map(f => ({ file: f, id: Math.random().toString(36), label: f.name.replace(/\.[^.]+$/, '') }))
@@ -35,7 +75,7 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
   const removeFile  = (type, id)        => setFiles(prev => ({ ...prev, [type]: prev[type].filter(f => f.id !== id) }))
   const updateLabel = (type, id, label) => setFiles(prev => ({ ...prev, [type]: prev[type].map(f => f.id === id ? { ...f, label } : f) }))
 
-  const step1Valid = (newBrand || brands.length === 0) ? (form.brandName.trim() && form.category.trim()) : form.brandId
+  const step1Valid = (newBrand || brands.length === 0) ? (form.brandName.trim() && form.categoryCode) : form.brandId
   const step2Valid = form.campaignName.trim()
 
   const handleCreateCampaign = async () => {
@@ -43,8 +83,27 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
     try {
       let brandId = form.brandId
       if (newBrand || brands.length === 0) {
-        const b = await createBrand({ name: form.brandName.trim(), category: form.category.trim(), logo_char: form.brandName[0]?.toUpperCase() ?? 'B', color: '#C9A84C' })
+        const cat = categories.find(c => c.code === form.categoryCode)
+        const b = await createBrand({
+          name: form.brandName.trim(),
+          category: cat?.name ?? form.categoryCode,
+          category_code: form.categoryCode,
+          brand_type: form.brandType,
+          logo_char: form.brandName[0]?.toUpperCase() ?? 'B',
+          color: '#C9A84C'
+        })
         brandId = b.id
+
+        // Upload logo and product image if provided
+        if (logoFile) {
+          const logoUrl = await uploadBrandImage(logoFile, brandId, 'logo')
+          await supabase.from('brands').update({ logo_url: logoUrl }).eq('id', brandId)
+        }
+        if (productFile) {
+          const productUrl = await uploadBrandImage(productFile, brandId, 'product')
+          await supabase.from('brands').update({ product_image_url: productUrl }).eq('id', brandId)
+        }
+
         refetchBrands?.()
       }
       const c = await createCampaign({ brand_id: brandId, name: form.campaignName.trim(), description: form.description, launched_at: form.launchedAt || null, channels: form.channels })
@@ -81,8 +140,14 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
 
   const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
   const surveyUrl = campaign ? `${appUrl}/survey/${campaign.survey_slug}` : ''
-
   const inputStyle = { width: '100%', padding: '11px 13px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: '14px', fontFamily: F.sans, outline: 'none', boxSizing: 'border-box' }
+
+  // Group categories by sector
+  const sectors = categories.reduce((acc, cat) => {
+    if (!acc[cat.sector_name]) acc[cat.sector_name] = []
+    acc[cat.sector_name].push(cat)
+    return acc
+  }, {})
 
   return (
     <div style={{ padding: 'clamp(20px, 5vw, 48px) clamp(16px, 5vw, 40px)', maxWidth: '760px', margin: '0 auto' }}>
@@ -91,6 +156,8 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
           .setup-channels { grid-template-columns: 1fr 1fr !important; }
           .setup-brands { grid-template-columns: 1fr !important; }
         }
+        .brand-type-btn:hover { border-color: ${C.gold}60 !important; }
+        .image-upload-zone:hover { border-color: ${C.gold} !important; opacity: 0.9; }
       `}</style>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -127,7 +194,10 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
                   const sel = form.brandId === b.id
                   return (
                     <button key={b.id} onClick={() => setForm(f => ({ ...f, brandId: b.id }))} style={{ padding: '11px 13px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer', border: `1px solid ${sel ? b.color : C.border}`, background: sel ? b.color + '12' : 'transparent', display: 'flex', alignItems: 'center', gap: '9px' }}>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: b.color + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: b.color, fontFamily: F.sans, flexShrink: 0 }}>{b.logo_char}</div>
+                      {b.logo_url
+                        ? <img src={b.logo_url} alt={b.name} style={{ width: '28px', height: '28px', borderRadius: '7px', objectFit: 'contain', background: b.color + '22', flexShrink: 0 }} />
+                        : <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: b.color + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: b.color, fontFamily: F.sans, flexShrink: 0 }}>{b.logo_char}</div>
+                      }
                       <div style={{ overflow: 'hidden' }}>
                         <p style={{ fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: sel ? b.color : C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
                         <p style={{ fontSize: '11px', fontFamily: F.sans, color: C.muted }}>{b.category}</p>
@@ -143,14 +213,81 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
           {(newBrand || brands.length === 0) && (
             <div>
               {brands.length > 0 && (
-                <button onClick={() => { setNewBrand(false) }} style={{ fontSize: '13px', color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: F.sans, marginBottom: '16px' }}>← Back to brand selection</button>
+                <button onClick={() => setNewBrand(false)} style={{ fontSize: '13px', color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: F.sans, marginBottom: '16px' }}>← Back to brand selection</button>
               )}
-              {[{ label: 'Brand Name', key: 'brandName', placeholder: 'e.g. Golden Morn' }, { label: 'Product Category', key: 'category', placeholder: 'e.g. Personal Care, Beverages' }].map(field => (
-                <div key={field.key} style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: C.text, marginBottom: '6px' }}>{field.label}</label>
-                  <input value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} placeholder={field.placeholder} style={inputStyle} />
+
+              {/* Brand Name */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: C.text, marginBottom: '6px' }}>Brand Name</label>
+                <input value={form.brandName} onChange={e => setForm(f => ({ ...f, brandName: e.target.value }))} placeholder="e.g. Golden Morn" style={inputStyle} />
+              </div>
+
+              {/* Category Dropdown */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: C.text, marginBottom: '6px' }}>Category</label>
+                <select value={form.categoryCode} onChange={e => handleCategoryChange(e.target.value)} style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}>
+                  <option value="">Select a category...</option>
+                  {Object.entries(sectors).map(([sector, cats]) => (
+                    <optgroup key={sector} label={sector}>
+                      {cats.map(cat => (
+                        <option key={cat.code} value={cat.code}>{cat.code} — {cat.name}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {/* Brand Type */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: C.text, marginBottom: '8px' }}>
+                  Brand Type
+                  {form.categoryCode && <span style={{ fontSize: '11px', color: C.gold, fontWeight: 400, marginLeft: '8px' }}>auto-suggested from category</span>}
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {BRAND_TYPES.map(bt => {
+                    const sel = form.brandType === bt.value
+                    return (
+                      <button key={bt.value} className="brand-type-btn" onClick={() => setForm(f => ({ ...f, brandType: bt.value }))} style={{ padding: '12px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer', border: `1px solid ${sel ? C.gold : C.border}`, background: sel ? C.goldDim : 'transparent', transition: 'all 0.15s' }}>
+                        <p style={{ fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: sel ? C.gold : C.text, marginBottom: '3px' }}>{bt.label}</p>
+                        <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, lineHeight: 1.4 }}>{bt.desc}</p>
+                      </button>
+                    )
+                  })}
                 </div>
-              ))}
+              </div>
+
+              {/* Brand Images */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, fontFamily: F.sans, color: C.text, marginBottom: '8px' }}>
+                  Brand Assets <span style={{ fontSize: '11px', color: C.muted, fontWeight: 400 }}>— optional, reused across all campaigns</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {/* Logo upload */}
+                  <div>
+                    <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Brand Logo</p>
+                    <label className="image-upload-zone" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100px', borderRadius: '10px', border: `2px dashed ${C.border}`, cursor: 'pointer', background: C.surface, transition: 'all 0.2s', overflow: 'hidden', position: 'relative' }}>
+                      <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: 'none' }} onChange={e => handleImagePick(e.target.files[0], 'logo')} />
+                      {logoPreview
+                        ? <img src={logoPreview} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }} />
+                        : <><span style={{ fontSize: '24px', marginBottom: '6px' }}>🏷️</span><p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans }}>Upload logo</p><p style={{ fontSize: '10px', color: C.dim, fontFamily: F.sans }}>PNG, SVG, JPG</p></>
+                      }
+                    </label>
+                    {logoPreview && <button onClick={() => { setLogoFile(null); setLogoPreview(null) }} style={{ fontSize: '11px', color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: F.sans, marginTop: '4px' }}>Remove</button>}
+                  </div>
+                  {/* Product image upload */}
+                  <div>
+                    <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Product / Pack Shot</p>
+                    <label className="image-upload-zone" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100px', borderRadius: '10px', border: `2px dashed ${C.border}`, cursor: 'pointer', background: C.surface, transition: 'all 0.2s', overflow: 'hidden', position: 'relative' }}>
+                      <input ref={productRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={e => handleImagePick(e.target.files[0], 'product')} />
+                      {productPreview
+                        ? <img src={productPreview} alt="Product preview" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }} />
+                        : <><span style={{ fontSize: '24px', marginBottom: '6px' }}>📦</span><p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans }}>Upload product</p><p style={{ fontSize: '10px', color: C.dim, fontFamily: F.sans }}>PNG, JPG, WEBP</p></>
+                      }
+                    </label>
+                    {productPreview && <button onClick={() => { setProductFile(null); setProductPreview(null) }} style={{ fontSize: '11px', color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: F.sans, marginTop: '4px' }}>Remove</button>}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
