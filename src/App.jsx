@@ -1,3 +1,4 @@
+import AuthCallback from './pages/AuthCallback.jsx'
 import logo from "./assets/AdChasser_Logo.png"
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
@@ -63,7 +64,7 @@ export default function App() {
       {/* ── Auth ── */}
       <Route path="/auth"          element={user ? <Navigate to="/app" replace /> : <AuthPage onAuth={setUser} />} />
       <Route path="/auth/reset"    element={<ResetPassword />} />
-      <Route path="/auth/callback" element={<Loader />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
 
       {/* ── Survey (public) ── */}
       <Route path="/survey/:slug"  element={<SurveyPage />} />
