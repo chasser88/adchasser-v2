@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { C, F, CHART_COLORS } from '../../tokens.js'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Card, Badge, Spinner, ChartTooltip, Eyebrow } from '../shared/ui.jsx'
 import { exportCampaignPDF } from '../../lib/exportPDF.js'
 import { useCampaignAnalytics, useEmotionData, useChannelData, useSegmentData, useRealtimeResponses } from '../../hooks.js'
+import { supabase } from '../../lib/supabase.js'
 
 const RECS = [
   { pillar: 'Channel Strategy',   icon: '📡', score: 74, color: C.blue,   headline: 'Double down on TikTok; pull back on Radio', insight: 'TikTok delivers highest resonance (84) and purchase conversion (38%) despite lower reach. Reallocating 60% of radio budget would lift overall campaign ROI by 22–28%.', actions: ['Increase TikTok + Reels spend by 40%', 'Reduce Radio to brand-presence-only buys', 'Test 15-second YouTube Shorts cut-downs'] },
@@ -14,13 +15,44 @@ const RECS = [
 
 const SEGMENTS = ['All','18–24','25–34','35–44','45–54','55+','Loyalists','Lapsed','Heavy Digital','TV-First']
 
+const SEGMENT_FILTER_MAP = {
+  '18–24':        { field: 'segment_life_stage',  value: '18–24' },
+  '25–34':        { field: 'segment_life_stage',  value: '25–34' },
+  '35–44':        { field: 'segment_life_stage',  value: '35–44' },
+  '45–54':        { field: 'segment_life_stage',  value: '45–54' },
+  '55+':          { field: 'segment_life_stage',  value: '55+' },
+  'Loyalists':    { field: 'segment_brand_rel',   value: 'loyalist' },
+  'Lapsed':       { field: 'segment_brand_rel',   value: 'lapsed' },
+  'Heavy Digital':{ field: 'segment_media_habit', value: 'heavy_digital' },
+  'TV-First':     { field: 'segment_media_habit', value: 'tv_first' },
+}
+
 const EMPTY_DATA = { total_responses: 0, track_a_count: 0, track_b_count: 0, completion_rate: 0, avg_recall: 0, avg_emotion: 0, avg_brand_equity: 0, avg_purchase_intent: 0, avg_resonance: 0 }
 
+function computeAveragesFromResponses(responses) {
+  if (!responses?.length) return EMPTY_DATA
+  const n = responses.length
+  const avg = key => Math.round(responses.reduce((s, r) => s + (r[key] ?? 0), 0) / n)
+  return {
+    total_responses:      n,
+    track_a_count:        responses.filter(r => r.track === 'A').length,
+    track_b_count:        responses.filter(r => r.track === 'B').length,
+    completion_rate:      100,
+    avg_recall:           avg('score_recall'),
+    avg_emotion:          avg('score_emotion'),
+    avg_brand_equity:     avg('score_brand_equity'),
+    avg_purchase_intent:  avg('score_purchase_intent'),
+    avg_resonance:        avg('score_resonance'),
+  }
+}
+
 export default function Dashboard({ campaign, brand }) {
-  const [segment,   setSegment]   = useState('All')
-  const [activeRec, setActiveRec] = useState(0)
-  const [exporting, setExporting] = useState(false)
-  const [liveCount, setLiveCount] = useState(0)
+  const [segment,       setSegment]       = useState('All')
+  const [activeRec,     setActiveRec]     = useState(0)
+  const [exporting,     setExporting]     = useState(false)
+  const [liveCount,     setLiveCount]     = useState(0)
+  const [filteredData,  setFilteredData]  = useState(null)
+  const [filterLoading, setFilterLoading] = useState(false)
 
   const { data: analytics, loading: aLoading, refetch: refetchAnalytics } = useCampaignAnalytics(campaign?.id)
   const { data: emotionData } = useEmotionData(campaign?.id)
@@ -29,8 +61,28 @@ export default function Dashboard({ campaign, brand }) {
 
   useRealtimeResponses(campaign?.id, useCallback(() => { setLiveCount(n => n + 1); refetchAnalytics() }, [refetchAnalytics]))
 
-  // Always use safe fallback — never null
-  const data    = analytics ?? EMPTY_DATA
+  // ── Segment filter logic ────────────────────────────────────────
+  useEffect(() => {
+    if (segment === 'All' || !campaign?.id) { setFilteredData(null); return }
+
+    const filterInfo = SEGMENT_FILTER_MAP[segment]
+    if (!filterInfo) { setFilteredData(null); return }
+
+    setFilterLoading(true)
+    supabase
+      .from('survey_responses')
+      .select('track, score_recall, score_emotion, score_brand_equity, score_purchase_intent, score_resonance')
+      .eq('campaign_id', campaign.id)
+      .eq(filterInfo.field, filterInfo.value)
+      .not('completed_at', 'is', null)
+      .then(({ data }) => {
+        setFilteredData(computeAveragesFromResponses(data ?? []))
+        setFilterLoading(false)
+      })
+  }, [segment, campaign?.id])
+
+  // Use filtered data when segment is active, otherwise use full analytics
+  const data    = (segment !== 'All' ? filteredData : analytics) ?? EMPTY_DATA
   const emoData = emotionData?.length ? emotionData : []
   const chData  = channelData?.length ? channelData : []
   const segData = segmentData?.length ? segmentData.map(s => ({ ...s, segment: s.segment_life_stage ?? s.segment_brand_rel ?? '—' })) : []
@@ -60,8 +112,9 @@ export default function Dashboard({ campaign, brand }) {
   }
 
   const safeDelta = (score, benchmark) => Math.round(score - benchmark)
-
   const hasData = total > 0
+  const isFiltering = segment !== 'All'
+  const isLoading = aLoading || (isFiltering && filterLoading)
 
   return (
     <div style={{ padding: 'clamp(20px, 4vw, 40px) clamp(16px, 4vw, 32px) 80px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -84,6 +137,7 @@ export default function Dashboard({ campaign, brand }) {
           <h2 style={{ fontSize: 'clamp(18px, 3vw, 28px)', fontFamily: F.display, fontWeight: 700, marginBottom: '5px' }}>{campaign?.name ?? 'Campaign Dashboard'}</h2>
           <p style={{ fontSize: '13px', color: C.muted, fontFamily: F.sans }}>
             {brand?.name ?? ''}{brand?.name ? ' · ' : ''}{total.toLocaleString()} responses
+            {isFiltering && <span style={{ color: C.gold, marginLeft: '8px' }}>· Filtered: {segment}</span>}
             {liveCount > 0 && <span style={{ color: C.green, marginLeft: '8px' }}>+{liveCount} new</span>}
           </p>
         </div>
@@ -96,14 +150,23 @@ export default function Dashboard({ campaign, brand }) {
       </div>
 
       {/* No data state */}
-      {!hasData && !aLoading && (
+      {!hasData && !isLoading && (
         <Card style={{ padding: '48px 24px', textAlign: 'center', marginBottom: '24px' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
-          <h3 style={{ fontSize: '20px', fontFamily: F.display, fontWeight: 700, marginBottom: '10px' }}>No responses yet</h3>
+          <h3 style={{ fontSize: '20px', fontFamily: F.display, fontWeight: 700, marginBottom: '10px' }}>
+            {isFiltering ? `No responses for ${segment} segment` : 'No responses yet'}
+          </h3>
           <p style={{ fontSize: '14px', color: C.muted, fontFamily: F.sans, lineHeight: 1.7, maxWidth: '380px', margin: '0 auto 20px' }}>
-            Share your survey link to start collecting responses. Your dashboard will populate in real time as people complete the survey.
+            {isFiltering
+              ? 'Try a different segment filter or view all responses.'
+              : 'Share your survey link to start collecting responses.'}
           </p>
-          {campaign?.survey_slug && (
+          {isFiltering && (
+            <button onClick={() => setSegment('All')} style={{ padding: '8px 20px', background: C.goldDim, border: `1px solid ${C.gold}40`, borderRadius: '8px', color: C.gold, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer' }}>
+              Show All Segments
+            </button>
+          )}
+          {!isFiltering && campaign?.survey_slug && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <code style={{ fontSize: '12px', color: C.gold, background: C.goldDim, padding: '6px 12px', borderRadius: '6px', border: `1px solid ${C.gold}30`, wordBreak: 'break-all' }}>
                 {`${import.meta.env.VITE_APP_URL ?? window.location.origin}/survey/${campaign.survey_slug}`}
@@ -119,14 +182,16 @@ export default function Dashboard({ campaign, brand }) {
       {/* KPI Strip */}
       <div className="dash-kpi" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '20px' }}>
         {[
-          { label: 'Total Responses',   value: total.toLocaleString(), color: C.gold   },
-          { label: 'Track A (Organic)', value: (data.track_a_count ?? 0).toLocaleString(), color: C.blue   },
-          { label: 'Track B (Exposed)', value: (data.track_b_count ?? 0).toLocaleString(), color: C.purple },
-          { label: 'Completion Rate',   value: data.completion_rate ? `${data.completion_rate}%` : '—', color: C.green },
+          { label: 'Total Responses',   value: total.toLocaleString(),                                  color: C.gold   },
+          { label: 'Track A (Organic)', value: (data.track_a_count ?? 0).toLocaleString(),              color: C.blue   },
+          { label: 'Track B (Exposed)', value: (data.track_b_count ?? 0).toLocaleString(),              color: C.purple },
+          { label: 'Completion Rate',   value: data.completion_rate ? `${data.completion_rate}%` : '—', color: C.green  },
         ].map(m => (
           <Card key={m.label} style={{ padding: '14px 16px' }}>
             <p style={{ fontSize: '10px', color: C.muted, fontFamily: F.sans, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '7px' }}>{m.label}</p>
-            {aLoading ? <div style={{ height: '28px', background: C.border, borderRadius: '4px', animation: 'pulse 1.5s ease infinite' }} /> : <p style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, fontFamily: F.sans, color: m.color, lineHeight: 1 }}>{m.value}</p>}
+            {isLoading
+              ? <div style={{ height: '28px', background: C.border, borderRadius: '4px', animation: 'pulse 1.5s ease infinite' }} />
+              : <p style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, fontFamily: F.sans, color: m.color, lineHeight: 1 }}>{m.value}</p>}
           </Card>
         ))}
       </div>
@@ -137,6 +202,14 @@ export default function Dashboard({ campaign, brand }) {
           <button key={s} className="dash-segment-btn" onClick={() => setSegment(s)} style={{ padding: '6px 12px', borderRadius: '20px', border: `1px solid ${segment === s ? C.gold : C.border}`, background: segment === s ? C.goldDim : 'transparent', color: segment === s ? C.gold : C.muted, fontSize: '12px', fontFamily: F.sans, cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: segment === s ? 600 : 400, flexShrink: 0 }}>{s}</button>
         ))}
       </div>
+
+      {/* Filtering indicator */}
+      {isFiltering && filterLoading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', padding: '10px 14px', background: C.goldDim, borderRadius: '10px', border: `1px solid ${C.gold}30` }}>
+          <Spinner size={13} color={C.gold} />
+          <p style={{ fontSize: '13px', color: C.gold, fontFamily: F.sans }}>Filtering by {segment}...</p>
+        </div>
+      )}
 
       {/* Brand Equity Scorecard */}
       <h3 style={{ fontSize: '16px', fontFamily: F.display, fontWeight: 700, marginBottom: '12px' }}>Brand Equity Scorecard</h3>
@@ -153,7 +226,10 @@ export default function Dashboard({ campaign, brand }) {
           </ResponsiveContainer>
         </Card>
         <Card style={{ padding: '18px' }}>
-          <p style={{ fontSize: '12px', color: C.muted, fontFamily: F.sans, marginBottom: '14px' }}>Score vs Category Benchmark</p>
+          <p style={{ fontSize: '12px', color: C.muted, fontFamily: F.sans, marginBottom: '14px' }}>
+            Score vs Category Benchmark
+            {isFiltering && <span style={{ color: C.gold, marginLeft: '6px' }}>· {segment}</span>}
+          </p>
           {radarData.map(d => {
             const delta = safeDelta(d.score, d.benchmark)
             return (
@@ -183,11 +259,11 @@ export default function Dashboard({ campaign, brand }) {
               <BarChart data={chData} barCategoryGap="30%">
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false} />
                 <XAxis dataKey="channel" tick={{ fontSize: 10, fill: C.muted, fontFamily: F.sans }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: C.dim, fontFamily: F.sans }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: C.muted, fontFamily: F.sans }} axisLine={false} tickLine={false} />
                 <Tooltip content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '11px', fontFamily: F.sans, color: C.muted }} />
-                <Bar dataKey="reach"     name="Reach %"          fill={C.blue}   fillOpacity={0.8} radius={[4,4,0,0]} />
-                <Bar dataKey="resonance" name="Resonance"        fill={C.gold}   fillOpacity={0.85} radius={[4,4,0,0]} />
+                <Bar dataKey="reach"     name="Reach %"           fill={C.blue}  fillOpacity={0.8} radius={[4,4,0,0]} />
+                <Bar dataKey="resonance" name="Resonance"         fill={C.gold}  fillOpacity={0.85} radius={[4,4,0,0]} />
                 <Bar dataKey="purchase"  name="Purchase Intent %" fill={C.green} fillOpacity={0.85} radius={[4,4,0,0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -249,7 +325,7 @@ export default function Dashboard({ campaign, brand }) {
               <BarChart data={segData} barCategoryGap="28%">
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false} />
                 <XAxis dataKey="segment" tick={{ fontSize: 10, fill: C.muted, fontFamily: F.sans }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: C.dim, fontFamily: F.sans }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: C.muted, fontFamily: F.sans }} axisLine={false} tickLine={false} />
                 <Tooltip content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '11px', fontFamily: F.sans, color: C.muted }} />
                 <Bar dataKey="avg_recall"          name="Recall"          fill={C.gold}   fillOpacity={0.8} radius={[4,4,0,0]} />
