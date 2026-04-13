@@ -2,8 +2,9 @@ import { useNavigate } from 'react-router-dom'
 import { C, F, CHART_COLORS } from '../tokens.js'
 import SiteNav from '../components/layout/SiteNav.jsx'
 import SiteFooter from '../components/layout/SiteFooter.jsx'
+import { useCMSPage } from '../lib/useCMS.js'
 
-const FEATURES = [
+const DEFAULT_FEATURES = [
   { icon: '📡', title: 'Dual-Track Methodology',    desc: 'Separates media reach from creative quality — two fundamentally different problems that standard brand trackers conflate.' },
   { icon: '🧠', title: '38-Question Survey',         desc: 'Emotion-first, projective sequencing that gets to what people actually feel — not just what they say they feel.' },
   { icon: '📊', title: 'Live Analytics Dashboard',  desc: 'Real-time segment breakdowns across demographics, purchase behaviour, brand relationship, and media habits.' },
@@ -12,7 +13,7 @@ const FEATURES = [
   { icon: '🎬', title: 'In-Survey Asset Serving',    desc: 'Show respondents your actual campaign assets — video, audio, static — with 80% completion gating.' },
 ]
 
-const STATS = [
+const DEFAULT_STATS = [
   { value: '38', label: 'Research-grade questions' },
   { value: '4',  label: 'Segmentation dimensions'  },
   { value: '2',  label: 'Diagnostic tracks'        },
@@ -21,6 +22,25 @@ const STATS = [
 
 export default function HomePage({ user }) {
   const navigate = useNavigate()
+  const { block } = useCMSPage('home')
+
+  // CMS overrides with hardcoded fallbacks
+  const hero     = block('hero')
+  const FEATURES = block('features')?.items  ?? DEFAULT_FEATURES
+  const STATS    = block('stats')?.items     ?? DEFAULT_STATS
+  const cta      = block('cta')
+
+  const heroSubheadline = hero?.subheadline  ?? 'AdChasser measures whether your campaign was consumed, understood and impactful — separating reach from creative quality using a dual-track research methodology.'
+  const featuresEyebrow = block('features')?.eyebrow  ?? 'Platform Features'
+  const featuresHeadline = block('features')?.headline ?? 'Everything you need to read your campaign'
+  const ctaHeadline = cta?.headline ?? 'Ready to know if your campaign actually landed?'
+  const ctaSubtext  = cta?.subtext  ?? 'Set up your first campaign in under 5 minutes.'
+  const ctaBtnText  = cta?.cta_text ?? 'Get Started Free →'
+  const ctaBtnUrl   = cta?.cta_url  ?? '/auth?signup=true'
+  const primaryBtnText  = hero?.cta_primary_text    ?? 'Start For Free →'
+  const primaryBtnUrl   = hero?.cta_primary_url     ?? '/auth?signup=true'
+  const secondaryBtnText = hero?.cta_secondary_text ?? 'See How It Works'
+  const secondaryBtnUrl  = hero?.cta_secondary_url  ?? '/how-it-works'
 
   return (
     <div style={{ background: C.bg, color: C.text, fontFamily: F.sans, minHeight: '100vh' }}>
@@ -40,11 +60,11 @@ export default function HomePage({ user }) {
           </span>
         </h1>
         <p style={{ fontSize: 'clamp(14px,2vw,18px)', color: C.muted, lineHeight: 1.75, maxWidth: '560px', margin: '0 auto 32px' }}>
-          AdChasser measures whether your campaign was consumed, understood and impactful — separating reach from creative quality using a dual-track research methodology.
+          {heroSubheadline}
         </p>
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => navigate('/auth?signup=true')} style={{ padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>Start For Free →</button>
-          <button onClick={() => navigate('/how-it-works')} style={{ padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: 'clamp(13px,2vw,15px)', fontFamily: F.sans, cursor: 'pointer' }}>See How It Works</button>
+          <button onClick={() => navigate(primaryBtnUrl)} style={{ padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>{primaryBtnText}</button>
+          <button onClick={() => navigate(secondaryBtnUrl)} style={{ padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: 'clamp(13px,2vw,15px)', fontFamily: F.sans, cursor: 'pointer' }}>{secondaryBtnText}</button>
         </div>
 
         {/* Stats strip */}
@@ -61,8 +81,8 @@ export default function HomePage({ user }) {
       {/* FEATURES */}
       <section style={{ padding: 'clamp(48px,8vw,96px) 5%' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          <p style={{ fontSize: '11px', letterSpacing: '4px', color: C.gold, fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px', textAlign: 'center' }}>Platform Features</p>
-          <h2 style={{ fontSize: 'clamp(22px,4vw,40px)', fontFamily: F.display, fontWeight: 700, textAlign: 'center', marginBottom: '48px' }}>Everything you need to read your campaign</h2>
+          <p style={{ fontSize: '11px', letterSpacing: '4px', color: C.gold, fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px', textAlign: 'center' }}>{featuresEyebrow}</p>
+          <h2 style={{ fontSize: 'clamp(22px,4vw,40px)', fontFamily: F.display, fontWeight: 700, textAlign: 'center', marginBottom: '48px' }}>{featuresHeadline}</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '16px' }}>
             {FEATURES.map(f => (
               <div key={f.title} style={{ padding: '24px', background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', transition: 'border-color 0.2s' }}
@@ -104,9 +124,9 @@ export default function HomePage({ user }) {
       {/* CTA */}
       <section style={{ padding: 'clamp(60px,10vw,110px) 5%', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 'min(400px,80vw)', height: '250px', background: `radial-gradient(ellipse,${C.gold}10,transparent 70%)`, pointerEvents: 'none' }} />
-        <h2 style={{ fontSize: 'clamp(24px,4vw,48px)', fontFamily: F.display, fontWeight: 700, marginBottom: '14px', position: 'relative' }}>Ready to know if your<br />campaign actually landed?</h2>
-        <p style={{ fontSize: 'clamp(14px,2vw,16px)', color: C.muted, marginBottom: '32px', position: 'relative' }}>Set up your first campaign in under 5 minutes.</p>
-        <button onClick={() => navigate('/auth?signup=true')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer', position: 'relative' }}>Get Started Free →</button>
+        <h2 style={{ fontSize: 'clamp(24px,4vw,48px)', fontFamily: F.display, fontWeight: 700, marginBottom: '14px', position: 'relative' }}>{ctaHeadline}</h2>
+        <p style={{ fontSize: 'clamp(14px,2vw,16px)', color: C.muted, marginBottom: '32px', position: 'relative' }}>{ctaSubtext}</p>
+        <button onClick={() => navigate(ctaBtnUrl)} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer', position: 'relative' }}>{ctaBtnText}</button>
       </section>
 
       <SiteFooter />

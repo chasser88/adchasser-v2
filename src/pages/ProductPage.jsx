@@ -3,27 +3,37 @@ import { C, F } from '../tokens.js'
 import SiteNav from '../components/layout/SiteNav.jsx'
 import SiteFooter from '../components/layout/SiteFooter.jsx'
 import BackButton from '../components/layout/BackButton.jsx'
+import { useCMSPage } from '../lib/useCMS.js'
 
-const CAPABILITIES = [
+const DEFAULT_CAPABILITIES = [
   { icon: '📡', title: 'Dual-Track Research Design', body: 'Every respondent is routed into Track A (organic recall) or Track B (forced exposure). The gap between these two tracks reveals whether underperformance is a reach problem or a creative problem — a distinction most trackers cannot make.' },
   { icon: '🧠', title: '38-Question Intelligence Survey', body: 'Our survey is built on projective, emotion-first questioning. Rather than asking what people think, we ask questions that reveal what they feel. This surfaces the unconscious associations and brand perceptions that drive real purchase behaviour.' },
   { icon: '📊', title: 'Real-Time Analytics Dashboard', body: 'Watch your data come in live. Segment responses by demographics, purchase frequency, brand relationship, and media habits. Every chart updates in real time as new responses arrive.' },
   { icon: '🎯', title: 'Data-Driven Recommendations', body: 'Four strategic pillars — Channel Strategy, Creative Direction, Audience Targeting, and Timing & Frequency — each with specific, actionable recommendations based on your actual response data.' },
-  { icon: '🎬', title: 'In-Survey Asset Serving', body: 'Upload your campaign assets — TV commercials, radio spots, OOH statics, PDFs — and serve them to respondents directly within the survey. Video and audio require 80% completion before the survey continues.' },
+  { icon: '🎬', title: 'In-Survey Asset Serving', body: 'Upload your campaign assets — TV commercials, radio spots, OOH statics — and serve them to respondents directly within the survey. Video and audio require 80% completion before the survey continues.' },
   { icon: '📄', title: 'One-Click PDF Reports', body: 'Export a full five-page branded intelligence report covering executive summary, brand equity scorecard, channel performance, segment analysis, and strategic recommendations. Ready to present to clients or leadership.' },
 ]
 
 const SCORES = [
-  { label: 'Recall Score',         desc: 'How well the campaign was retained unaided',        color: C.gold   },
-  { label: 'Emotion Score',        desc: 'The emotional quality and valence of the response', color: C.purple },
-  { label: 'Brand Equity Score',   desc: 'Salience, meaningfulness, and advocacy',            color: C.blue   },
-  { label: 'Purchase Intent Score',desc: 'Consideration and conversion attribution',           color: C.green  },
-  { label: 'Resonance Score',      desc: 'Creative strength and message clarity',             color: C.teal   },
-  { label: 'Exposure Score',       desc: 'Frequency and reach penetration',                   color: C.orange },
+  { label: 'Recall Score',          desc: 'How well the campaign was retained unaided',        color: C.gold   },
+  { label: 'Emotion Score',         desc: 'The emotional quality and valence of the response', color: C.purple },
+  { label: 'Brand Equity Score',    desc: 'Salience, meaningfulness, and advocacy',            color: C.blue   },
+  { label: 'Purchase Intent Score', desc: 'Consideration and conversion attribution',           color: C.green  },
+  { label: 'Resonance Score',       desc: 'Creative strength and message clarity',             color: C.teal   },
+  { label: 'Exposure Score',        desc: 'Frequency and reach penetration',                   color: C.orange },
 ]
 
 export default function ProductPage({ user }) {
   const navigate = useNavigate()
+  const { block } = useCMSPage('product')
+
+  const hero         = block('hero')
+  const CAPABILITIES = block('cards')?.items ?? DEFAULT_CAPABILITIES
+  const cta          = block('cta')
+
+  const heroSub    = hero?.subheadline ?? 'Built for agencies, brand managers, and marketing teams who need to understand not just whether their campaign reached people — but whether it moved them.'
+  const ctaHeadline = cta?.headline    ?? 'See AdChasser in action'
+  const ctaSubtext  = cta?.subtext     ?? 'Set up your first campaign free — no credit card required.'
 
   return (
     <div style={{ background: C.bg, color: C.text, fontFamily: F.sans, minHeight: '100vh' }}>
@@ -32,37 +42,37 @@ export default function ProductPage({ user }) {
       {/* Hero */}
       <section style={{ padding: 'clamp(48px,8vw,96px) 5%', position: 'relative', overflow: 'hidden' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-            <BackButton />
-          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}><BackButton /></div>
           <p style={{ fontSize: '11px', letterSpacing: '4px', color: C.gold, fontWeight: 600, textTransform: 'uppercase', marginBottom: '14px' }}>The Platform</p>
           <h1 style={{ fontSize: 'clamp(28px,5vw,56px)', fontFamily: F.display, fontWeight: 700, lineHeight: 1.1, marginBottom: '20px' }}>
             A complete brand campaign<br />intelligence platform
           </h1>
-          <p style={{ fontSize: 'clamp(14px,2vw,17px)', color: C.muted, lineHeight: 1.8, maxWidth: '600px', margin: '0 auto 32px' }}>
-            Built for agencies, brand managers, and marketing teams who need to understand not just whether their campaign reached people — but whether it moved them.
-          </p>
-          <button onClick={() => navigate('/auth?signup=true')} style={{ padding: '13px 28px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>Start For Free →</button>
+          <p style={{ fontSize: 'clamp(14px,2vw,17px)', color: C.muted, lineHeight: 1.8, maxWidth: '600px', margin: '0 auto 32px' }}>{heroSub}</p>
+          <button onClick={() => navigate(hero?.cta_primary_url ?? '/auth?signup=true')} style={{ padding: '13px 28px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+            {hero?.cta_primary_text ?? 'Start For Free →'}
+          </button>
         </div>
       </section>
 
       {/* Capabilities */}
       <section style={{ padding: 'clamp(40px,6vw,80px) 5%', background: C.surface }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: 'clamp(22px,3vw,36px)', fontFamily: F.display, fontWeight: 700, marginBottom: '40px', textAlign: 'center' }}>Platform Capabilities</h2>
+          <h2 style={{ fontSize: 'clamp(22px,3vw,36px)', fontFamily: F.display, fontWeight: 700, marginBottom: '40px', textAlign: 'center' }}>
+            {block('cards')?.headline ?? 'Platform Capabilities'}
+          </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: '20px' }}>
             {CAPABILITIES.map(c => (
               <div key={c.title} style={{ padding: '28px', background: C.card, borderRadius: '16px', border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: '28px', marginBottom: '14px' }}>{c.icon}</div>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '10px' }}>{c.title}</h3>
-                <p style={{ fontSize: '13px', color: C.muted, lineHeight: 1.75 }}>{c.body}</p>
+                <p style={{ fontSize: '13px', color: C.muted, lineHeight: 1.75 }}>{c.body ?? c.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Six scores */}
+      {/* Six scores — hardcoded structure, CMS not needed here */}
       <section style={{ padding: 'clamp(40px,6vw,80px) 5%' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <p style={{ fontSize: '11px', letterSpacing: '4px', color: C.gold, fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px', textAlign: 'center' }}>Brand Equity Scorecard</p>
@@ -85,11 +95,15 @@ export default function ProductPage({ user }) {
 
       {/* CTA */}
       <section style={{ padding: 'clamp(48px,8vw,80px) 5%', background: C.surface, textAlign: 'center' }}>
-        <h2 style={{ fontSize: 'clamp(22px,3vw,36px)', fontFamily: F.display, fontWeight: 700, marginBottom: '14px' }}>See AdChasser in action</h2>
-        <p style={{ fontSize: '15px', color: C.muted, marginBottom: '28px' }}>Set up your first campaign free — no credit card required.</p>
+        <h2 style={{ fontSize: 'clamp(22px,3vw,36px)', fontFamily: F.display, fontWeight: 700, marginBottom: '14px' }}>{ctaHeadline}</h2>
+        <p style={{ fontSize: '15px', color: C.muted, marginBottom: '28px' }}>{ctaSubtext}</p>
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => navigate('/auth?signup=true')} style={{ padding: '13px 28px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>Get Started Free →</button>
-          <button onClick={() => navigate('/how-it-works')} style={{ padding: '13px 28px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: '14px', fontFamily: F.sans, cursor: 'pointer' }}>How It Works</button>
+          <button onClick={() => navigate(cta?.cta_url ?? '/auth?signup=true')} style={{ padding: '13px 28px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+            {cta?.cta_text ?? 'Get Started Free →'}
+          </button>
+          <button onClick={() => navigate(cta?.cta_secondary_url ?? '/how-it-works')} style={{ padding: '13px 28px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: '14px', fontFamily: F.sans, cursor: 'pointer' }}>
+            {cta?.cta_secondary_text ?? 'How It Works'}
+          </button>
         </div>
       </section>
 
