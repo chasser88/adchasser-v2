@@ -5,6 +5,7 @@ import { Card, Badge, Spinner, ChartTooltip, Eyebrow } from '../shared/ui.jsx'
 import { exportCampaignPDF } from '../../lib/exportPDF.js'
 import { useCampaignAnalytics, useEmotionData, useChannelData, useSegmentData, useRealtimeResponses } from '../../hooks.js'
 import { supabase } from '../../lib/supabase.js'
+import SampleSizeWidget from './SampleSizeWidget.jsx'
 
 const RECS = [
   { pillar: 'Channel Strategy',   icon: '📡', score: 74, color: C.blue,   headline: 'Double down on TikTok; pull back on Radio', insight: 'TikTok delivers highest resonance (84) and purchase conversion (38%) despite lower reach. Reallocating 60% of radio budget would lift overall campaign ROI by 22–28%.', actions: ['Increase TikTok + Reels spend by 40%', 'Reduce Radio to brand-presence-only buys', 'Test 15-second YouTube Shorts cut-downs'] },
@@ -47,12 +48,13 @@ function computeAveragesFromResponses(responses) {
 }
 
 export default function Dashboard({ campaign, brand }) {
-  const [segment,       setSegment]       = useState('All')
-  const [activeRec,     setActiveRec]     = useState(0)
-  const [exporting,     setExporting]     = useState(false)
-  const [liveCount,     setLiveCount]     = useState(0)
-  const [filteredData,  setFilteredData]  = useState(null)
-  const [filterLoading, setFilterLoading] = useState(false)
+  const [segment,         setSegment]         = useState('All')
+  const [activeRec,       setActiveRec]       = useState(0)
+  const [exporting,       setExporting]       = useState(false)
+  const [exportingReport, setExportingReport] = useState(false)
+  const [liveCount,       setLiveCount]       = useState(0)
+  const [filteredData,    setFilteredData]    = useState(null)
+  const [filterLoading,   setFilterLoading]   = useState(false)
 
   const { data: analytics, loading: aLoading, refetch: refetchAnalytics } = useCampaignAnalytics(campaign?.id)
   const { data: emotionData } = useEmotionData(campaign?.id)
@@ -61,13 +63,10 @@ export default function Dashboard({ campaign, brand }) {
 
   useRealtimeResponses(campaign?.id, useCallback(() => { setLiveCount(n => n + 1); refetchAnalytics() }, [refetchAnalytics]))
 
-  // ── Segment filter logic ────────────────────────────────────────
   useEffect(() => {
     if (segment === 'All' || !campaign?.id) { setFilteredData(null); return }
-
     const filterInfo = SEGMENT_FILTER_MAP[segment]
     if (!filterInfo) { setFilteredData(null); return }
-
     setFilterLoading(true)
     supabase
       .from('survey_responses')
@@ -81,7 +80,6 @@ export default function Dashboard({ campaign, brand }) {
       })
   }, [segment, campaign?.id])
 
-  // Use filtered data when segment is active, otherwise use full analytics
   const data    = (segment !== 'All' ? filteredData : analytics) ?? EMPTY_DATA
   const emoData = emotionData?.length ? emotionData : []
   const chData  = channelData?.length ? channelData : []
@@ -111,23 +109,37 @@ export default function Dashboard({ campaign, brand }) {
     finally { setExporting(false) }
   }
 
-  const safeDelta = (score, benchmark) => Math.round(score - benchmark)
-  const hasData = total > 0
+  const handleDownloadReport = async () => {
+    setExportingReport(true)
+    try {
+      await exportCampaignPDF({
+        campaign, brand, analytics: data,
+        emotionData: emoData, channelData: chData,
+        segmentData: segData, aiRecs: RECS,
+        isFinalReport: true,
+      })
+    } catch (e) { console.error('Report export error:', e) }
+    finally { setExportingReport(false) }
+  }
+
+  const safeDelta  = (score, benchmark) => Math.round(score - benchmark)
+  const hasData    = total > 0
   const isFiltering = segment !== 'All'
-  const isLoading = aLoading || (isFiltering && filterLoading)
+  const isLoading   = aLoading || (isFiltering && filterLoading)
 
   return (
     <div style={{ padding: 'clamp(20px, 4vw, 40px) clamp(16px, 4vw, 32px) 80px', maxWidth: '1200px', margin: '0 auto' }}>
       <style>{`
         @media (max-width: 640px) {
-          .dash-kpi { grid-template-columns: 1fr 1fr !important; }
-          .dash-scorecard { grid-template-columns: 1fr !important; }
+          .dash-kpi            { grid-template-columns: 1fr 1fr !important; }
+          .dash-scorecard      { grid-template-columns: 1fr !important; }
           .dash-emotion-funnel { grid-template-columns: 1fr !important; }
-          .dash-recs { grid-template-columns: 1fr !important; }
-          .dash-header { flex-direction: column !important; align-items: flex-start !important; }
-          .dash-segments { gap: 4px !important; }
-          .dash-segment-btn { padding: 5px 9px !important; font-size: 11px !important; }
+          .dash-recs           { grid-template-columns: 1fr !important; }
+          .dash-header         { flex-direction: column !important; align-items: flex-start !important; }
+          .dash-segments       { gap: 4px !important; }
+          .dash-segment-btn    { padding: 5px 9px !important; font-size: 11px !important; }
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       {/* Header */}
@@ -149,6 +161,14 @@ export default function Dashboard({ campaign, brand }) {
         </div>
       </div>
 
+      {/* ── Sample Size Progress Widget ── */}
+      <SampleSizeWidget
+        campaign={campaign}
+        totalResponses={total}
+        onDownloadReport={handleDownloadReport}
+        exportingReport={exportingReport}
+      />
+
       {/* No data state */}
       {!hasData && !isLoading && (
         <Card style={{ padding: '48px 24px', textAlign: 'center', marginBottom: '24px' }}>
@@ -157,9 +177,7 @@ export default function Dashboard({ campaign, brand }) {
             {isFiltering ? `No responses for ${segment} segment` : 'No responses yet'}
           </h3>
           <p style={{ fontSize: '14px', color: C.muted, fontFamily: F.sans, lineHeight: 1.7, maxWidth: '380px', margin: '0 auto 20px' }}>
-            {isFiltering
-              ? 'Try a different segment filter or view all responses.'
-              : 'Share your survey link to start collecting responses.'}
+            {isFiltering ? 'Try a different segment filter or view all responses.' : 'Share your survey link to start collecting responses.'}
           </p>
           {isFiltering && (
             <button onClick={() => setSegment('All')} style={{ padding: '8px 20px', background: C.goldDim, border: `1px solid ${C.gold}40`, borderRadius: '8px', color: C.gold, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer' }}>
@@ -203,7 +221,6 @@ export default function Dashboard({ campaign, brand }) {
         ))}
       </div>
 
-      {/* Filtering indicator */}
       {isFiltering && filterLoading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', padding: '10px 14px', background: C.goldDim, borderRadius: '10px', border: `1px solid ${C.gold}30` }}>
           <Spinner size={13} color={C.gold} />
@@ -220,7 +237,7 @@ export default function Dashboard({ campaign, brand }) {
               <PolarGrid stroke={C.border} />
               <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: C.muted, fontFamily: F.sans }} />
               <PolarRadiusAxis angle={30} domain={[0,100]} tick={false} axisLine={false} />
-              <Radar name="Score" dataKey="score" stroke={C.gold} fill={C.gold} fillOpacity={0.14} strokeWidth={2} />
+              <Radar name="Score"     dataKey="score"     stroke={C.gold}   fill={C.gold}  fillOpacity={0.14} strokeWidth={2} />
               <Radar name="Benchmark" dataKey="benchmark" stroke={C.border} fill="transparent" strokeWidth={1} strokeDasharray="4 4" />
             </RadarChart>
           </ResponsiveContainer>
@@ -258,11 +275,11 @@ export default function Dashboard({ campaign, brand }) {
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chData} barCategoryGap="30%">
                 <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false} />
-                <XAxis dataKey="channel" tick={{ fontSize: 10, fill: C.muted, fontFamily: F.sans }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="channel"  tick={{ fontSize: 10, fill: C.muted, fontFamily: F.sans }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: C.muted, fontFamily: F.sans }} axisLine={false} tickLine={false} />
                 <Tooltip content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '11px', fontFamily: F.sans, color: C.muted }} />
-                <Bar dataKey="reach"     name="Reach %"           fill={C.blue}  fillOpacity={0.8} radius={[4,4,0,0]} />
+                <Bar dataKey="reach"     name="Reach %"           fill={C.blue}  fillOpacity={0.8}  radius={[4,4,0,0]} />
                 <Bar dataKey="resonance" name="Resonance"         fill={C.gold}  fillOpacity={0.85} radius={[4,4,0,0]} />
                 <Bar dataKey="purchase"  name="Purchase Intent %" fill={C.green} fillOpacity={0.85} radius={[4,4,0,0]} />
               </BarChart>
