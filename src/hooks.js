@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { supabase } from './lib/supabase.js'
 import { uploadAsset as uploadAssetFn, fetchAssets, deleteAsset as deleteAssetFn } from '../lib/storage.js'
 import {
   fetchResponses, fetchCampaignAnalytics,
