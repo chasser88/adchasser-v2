@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { C, F } from '../../tokens.js'
-import { GEOGRAPHY, getRegions } from '../../lib/geography.js'
+import { C, F } from '../tokens.js'
+import { GEOGRAPHY, getRegions } from '../lib/geography.js'
 
 // Pan Nigeria = all Nigerian regions
 export const PAN_NIGERIA = getRegions('Nigeria').map(r => ({ country: 'Nigeria', region: r }))
