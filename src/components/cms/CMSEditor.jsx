@@ -79,8 +79,8 @@ function BlockForm({ type, content, onChange }) {
 
   if (type === 'hero') return (
     <div>
-      <label style={lbl}>Background Image (optional)</label>
-      <ImageUploadField value={content.bg_image ?? ''} onChange={v => update('bg_image', v)} aspectRatio="16/5" />
+      <label style={lbl}>Background Image or Video (optional)</label>
+      <ImageUploadField value={content.bg_image ?? ''} onChange={v => update('bg_image', v)} aspectRatio="16/5" acceptVideo={true} />
       <label style={lbl}>Eyebrow</label>
       <input style={inp} value={content.eyebrow ?? ''} onChange={e => update('eyebrow', e.target.value)} placeholder="Brand Campaign Intelligence Platform" />
       <label style={lbl}>Headline (use \n for line break)</label>

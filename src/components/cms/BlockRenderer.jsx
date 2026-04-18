@@ -8,13 +8,16 @@ import { resolveStyles } from '../../lib/blockStyles.js'
 
 function getEmbedUrl(url) {
   if (!url) return null
-  // YouTube
   const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/)
   if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`
-  // Vimeo
   const vmMatch = url.match(/vimeo\.com\/(\d+)/)
   if (vmMatch) return `https://player.vimeo.com/video/${vmMatch[1]}`
   return url
+}
+
+function isVideoUrl(url) {
+  if (!url) return false
+  return /\.(mp4|webm|mov)(\?|$)/i.test(url)
 }
 
 export default function BlockRenderer({ block, brandSettings }) {
@@ -31,32 +34,99 @@ export default function BlockRenderer({ block, brandSettings }) {
   const flexJustify = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
 
   // ── HERO ────────────────────────────────────────────────────────
-  if (type === 'hero') return (
-    <section style={{ ...sectionStyle, textAlign: align, position: 'relative', overflow: 'hidden' }}>
-      {content.bg_image && (
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${content.bg_image})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, zIndex: 0 }} />
-      )}
-      <div style={{ position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)', width: 'min(500px,90vw)', height: '250px', background: `radial-gradient(ellipse,${st.raw.accentColor}12,transparent 70%)`, pointerEvents: 'none', zIndex: 0 }} />
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        {content.eyebrow && <p style={st.accent}>{content.eyebrow}</p>}
-        {content.headline && (
-          <h1 style={{ ...st.headline, fontSize: 'clamp(30px,6vw,64px)', marginBottom: '20px', letterSpacing: '-0.5px' }}>
-            {content.headline.split('\n').map((line, i, arr) => (
-              <span key={i}>{i === arr.length - 1
-                ? <span style={{ background: `linear-gradient(135deg,${st.raw.accentColor},${st.raw.accentColor}CC)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{line}</span>
-                : <>{line}<br /></>
-              }</span>
-            ))}
-          </h1>
+  if (type === 'hero') {
+    const bgIsVideo = isVideoUrl(content.bg_image)
+    return (
+      <section style={{ ...sectionStyle, textAlign: align, position: 'relative', overflow: 'hidden' }}>
+
+        {/* Background — video or image */}
+        {content.bg_image && (
+          bgIsVideo ? (
+            <video
+              src={content.bg_image}
+              autoPlay
+              muted
+              loop
+              playsInline
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                objectFit: 'cover',
+                opacity: 0.55,
+                zIndex: 0,
+                pointerEvents: 'none',
+              }}
+            />
+          ) : (
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `url(${content.bg_image})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.3,
+              zIndex: 0,
+            }} />
+          )
         )}
-        {content.subheadline && <p style={{ ...st.subheadline, maxWidth: '560px', margin: `0 ${align === 'center' ? 'auto' : '0'} 32px` }}>{content.subheadline}</p>}
-        <div style={{ display: 'flex', gap: '10px', justifyContent: flexJustify, flexWrap: 'wrap' }}>
-          {content.cta_primary_text && <button onClick={() => navigate(content.cta_primary_url ?? '/')} style={{ ...st.button, padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', fontSize: 'clamp(13px,2vw,15px)' }}>{content.cta_primary_text}</button>}
-          {content.cta_secondary_text && <button onClick={() => navigate(content.cta_secondary_url ?? '/')} style={{ ...st.secondaryButton, padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', fontSize: 'clamp(13px,2vw,15px)' }}>{content.cta_secondary_text}</button>}
+
+        {/* Glow overlay */}
+        <div style={{
+          position: 'absolute', top: '30%', left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'min(500px,90vw)', height: '250px',
+          background: `radial-gradient(ellipse,${st.raw.accentColor}12,transparent 70%)`,
+          pointerEvents: 'none', zIndex: 0,
+        }} />
+
+        {/* Dark scrim for readability when video is present */}
+        {bgIsVideo && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to bottom, rgba(7,9,15,0.45) 0%, rgba(7,9,15,0.65) 100%)',
+            zIndex: 0, pointerEvents: 'none',
+          }} />
+        )}
+
+        {/* Content */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          {content.eyebrow && <p style={st.accent}>{content.eyebrow}</p>}
+          {content.headline && (
+            <h1 style={{ ...st.headline, fontSize: 'clamp(30px,6vw,64px)', marginBottom: '20px', letterSpacing: '-0.5px' }}>
+              {content.headline.split('\n').map((line, i, arr) => (
+                <span key={i}>{i === arr.length - 1
+                  ? <span style={{ background: `linear-gradient(135deg,${st.raw.accentColor},${st.raw.accentColor}CC)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{line}</span>
+                  : <>{line}<br /></>
+                }</span>
+              ))}
+            </h1>
+          )}
+          {content.subheadline && (
+            <p style={{ ...st.subheadline, maxWidth: '560px', margin: `0 ${align === 'center' ? 'auto' : '0'} 32px` }}>
+              {content.subheadline}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: flexJustify, flexWrap: 'wrap' }}>
+            {content.cta_primary_text && (
+              <button
+                onClick={() => navigate(content.cta_primary_url ?? '/')}
+                style={{ ...st.button, padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', fontSize: 'clamp(13px,2vw,15px)' }}
+              >
+                {content.cta_primary_text}
+              </button>
+            )}
+            {content.cta_secondary_text && (
+              <button
+                onClick={() => navigate(content.cta_secondary_url ?? '/')}
+                style={{ ...st.secondaryButton, padding: 'clamp(11px,2vw,14px) clamp(20px,4vw,32px)', fontSize: 'clamp(13px,2vw,15px)' }}
+              >
+                {content.cta_secondary_text}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-    </section>
-  )
+      </section>
+    )
+  }
 
   // ── IMAGE + TEXT ─────────────────────────────────────────────────
   if (type === 'image_text') {

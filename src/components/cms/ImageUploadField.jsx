@@ -2,21 +2,36 @@ import { useRef, useState } from 'react'
 import { C, F } from '../../tokens.js'
 import { uploadCMSImage } from '../../lib/useCMS.js'
 
-export default function ImageUploadField({ label, value, onChange, aspectRatio = '16/9', maxWidth = '100%' }) {
-  const inputRef  = useRef()
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/gif']
+const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
+const ALL_TYPES   = [...IMAGE_TYPES, ...VIDEO_TYPES]
+
+export default function ImageUploadField({
+  label,
+  value,
+  onChange,
+  aspectRatio = '16/9',
+  maxWidth = '100%',
+  acceptVideo = false,
+}) {
+  const inputRef    = useRef()
   const [uploading, setUploading] = useState(false)
   const [error,     setError]     = useState(null)
 
-  const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/gif']
+  const ALLOWED   = acceptVideo ? ALL_TYPES : IMAGE_TYPES
+  const isVideo   = (url) => url && (url.includes('.mp4') || url.includes('.webm') || url.includes('.mov'))
+  const maxSizeMB = acceptVideo ? 50 : 5
 
   const handleFile = async (file) => {
     if (!file) return
     if (!ALLOWED.includes(file.type)) {
-      setError('Please upload JPG, PNG, WEBP, SVG or GIF')
+      setError(acceptVideo
+        ? 'Please upload JPG, PNG, WEBP, SVG, GIF or MP4'
+        : 'Please upload JPG, PNG, WEBP, SVG or GIF')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be under 5MB')
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      setError(`File must be under ${maxSizeMB}MB`)
       return
     }
     setError(null)
@@ -36,7 +51,14 @@ export default function ImageUploadField({ label, value, onChange, aspectRatio =
     if (file) handleFile(file)
   }
 
-  const lbl = { display: 'block', fontSize: '10px', color: C.muted, fontFamily: F.sans, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '6px' }
+  const accept = acceptVideo
+    ? 'image/jpeg,image/png,image/webp,image/svg+xml,image/gif,video/mp4,video/quicktime,video/webm'
+    : 'image/jpeg,image/png,image/webp,image/svg+xml,image/gif'
+
+  const lbl = {
+    display: 'block', fontSize: '10px', color: C.muted, fontFamily: F.sans,
+    fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '6px',
+  }
 
   return (
     <div style={{ marginBottom: '12px', maxWidth }}>
@@ -44,11 +66,22 @@ export default function ImageUploadField({ label, value, onChange, aspectRatio =
 
       {value ? (
         <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${C.border}`, background: C.bg }}>
-          <img
-            src={value}
-            alt="Uploaded"
-            style={{ width: '100%', aspectRatio, objectFit: 'cover', display: 'block' }}
-          />
+          {isVideo(value) ? (
+            <video
+              src={value}
+              muted
+              loop
+              autoPlay
+              playsInline
+              style={{ width: '100%', aspectRatio, objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <img
+              src={value}
+              alt="Uploaded"
+              style={{ width: '100%', aspectRatio, objectFit: 'cover', display: 'block' }}
+            />
+          )}
           <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: '6px' }}>
             <button
               onClick={() => inputRef.current?.click()}
@@ -63,6 +96,11 @@ export default function ImageUploadField({ label, value, onChange, aspectRatio =
               ×
             </button>
           </div>
+          {isVideo(value) && (
+            <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(0,0,0,0.6)', borderRadius: '6px', padding: '3px 8px', fontSize: '10px', color: '#fff', fontFamily: F.sans }}>
+              🎬 MP4 Video
+            </div>
+          )}
         </div>
       ) : (
         <label
@@ -75,7 +113,7 @@ export default function ImageUploadField({ label, value, onChange, aspectRatio =
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/svg+xml,image/gif"
+            accept={accept}
             style={{ display: 'none' }}
             onChange={e => handleFile(e.target.files[0])}
           />
@@ -83,10 +121,14 @@ export default function ImageUploadField({ label, value, onChange, aspectRatio =
             <div style={{ fontSize: '13px', color: C.gold, fontFamily: F.sans }}>Uploading…</div>
           ) : (
             <>
-              <div style={{ fontSize: '28px' }}>🖼️</div>
+              <div style={{ fontSize: '28px' }}>{acceptVideo ? '🎬' : '🖼️'}</div>
               <p style={{ fontSize: '12px', color: C.muted, fontFamily: F.sans, textAlign: 'center', lineHeight: 1.5 }}>
                 <span style={{ color: C.gold }}>Click to upload</span> or drag & drop<br />
-                <span style={{ fontSize: '11px' }}>JPG, PNG, WEBP, SVG · max 5MB</span>
+                <span style={{ fontSize: '11px' }}>
+                  {acceptVideo
+                    ? 'JPG, PNG, WEBP, SVG, GIF, MP4 · max 50MB'
+                    : 'JPG, PNG, WEBP, SVG · max 5MB'}
+                </span>
               </p>
             </>
           )}
