@@ -24,7 +24,7 @@ export const DEFAULT_STYLES = {
   headlineSize:    40,
   bodySize:        14,
   fontWeight:      'Bold',
-  textAlign:       'left',
+  textAlign:       'center',
   textColor:       '#E2E6F3',
   bgColor:         'transparent',
   accentColor:     '#C9A84C',
@@ -58,7 +58,7 @@ export function resolveStyles(s = {}, brandSettings = null) {
 
   const ff = FONT_FAMILIES[merged.fontFamily] ?? FONT_FAMILIES['DM Sans']
   const fw = FONT_WEIGHTS[merged.fontWeight]  ?? 700
-  const ta = merged.textAlign ?? 'left'
+  const ta = merged.textAlign ?? 'center'
 
   return {
     section: {

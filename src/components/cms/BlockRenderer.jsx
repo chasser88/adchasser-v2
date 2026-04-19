@@ -89,10 +89,10 @@ export default function BlockRenderer({ block, brandSettings }) {
         )}
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          {content.eyebrow && <p style={st.accent}>{content.eyebrow}</p>}
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', textAlign: align }}>
+          {content.eyebrow && <p style={{ ...st.accent, textAlign: align }}>{content.eyebrow}</p>}
           {content.headline && (
-            <h1 style={{ ...st.headline, fontSize: 'clamp(30px,6vw,64px)', marginBottom: '20px', letterSpacing: '-0.5px' }}>
+            <h1 style={{ ...st.headline, fontSize: 'clamp(30px,6vw,64px)', marginBottom: '20px', letterSpacing: '-0.5px', textAlign: align }}>
               {content.headline.split('\n').map((line, i, arr) => (
                 <span key={i}>{i === arr.length - 1
                   ? <span style={{ background: `linear-gradient(135deg,${st.raw.accentColor},${st.raw.accentColor}CC)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{line}</span>
@@ -102,7 +102,7 @@ export default function BlockRenderer({ block, brandSettings }) {
             </h1>
           )}
           {content.subheadline && (
-            <p style={{ ...st.subheadline, maxWidth: '560px', margin: `0 ${align === 'center' ? 'auto' : '0'} 32px` }}>
+            <p style={{ ...st.subheadline, maxWidth: '560px', margin: `0 ${align === 'center' ? 'auto' : '0'} 32px`, textAlign: align }}>
               {content.subheadline}
             </p>
           )}
