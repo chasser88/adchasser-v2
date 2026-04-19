@@ -38,7 +38,7 @@ export default function BlockRenderer({ block, brandSettings }) {
   if (type === 'hero') {
     const bgIsVideo = isVideoUrl(content.bg_image)
     return (
-      <section style={{ ...sectionStyle, textAlign: align, position: 'relative', overflow: 'hidden' }}>
+      <section style={{ ...sectionStyle, textAlign: align, position: 'relative', overflow: 'hidden', minHeight: '85vh', display: 'flex', alignItems: 'center' }}>
 
         {/* Background — video or image */}
         {content.bg_image && (

@@ -135,7 +135,10 @@ export async function uploadCMSImage(file) {
   const ext    = file.name.split('.').pop()
   const path   = `cms/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
-  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true })
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+    upsert:      true,
+    contentType: file.type,  // critical for MP4 to play in browser
+  })
   if (error) throw error
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path)
