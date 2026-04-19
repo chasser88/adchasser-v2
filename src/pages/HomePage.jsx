@@ -21,32 +21,34 @@ const FALLBACK_STATS = [
   { value: '6',  label: 'Brand equity scores'      },
 ]
 
-const METHODOLOGY_SECTION = ({ navigate }) => (
-  <section style={{ padding: 'clamp(48px,8vw,96px) 5%', background: C.surface }}>
-    <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center' }}>
-      <p style={{ fontSize: '11px', letterSpacing: '4px', color: C.gold, fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px' }}>Methodology</p>
-      <h2 style={{ fontSize: 'clamp(22px,4vw,40px)', fontFamily: F.display, fontWeight: 700, marginBottom: '16px' }}>The reach vs. creative quality gap</h2>
-      <p style={{ fontSize: 'clamp(14px,2vw,16px)', color: C.muted, lineHeight: 1.8, maxWidth: '600px', margin: '0 auto 40px' }}>
-        Most brand trackers can't tell you if underperformance is a media problem or a creative problem. AdChasser separates them.
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '14px', marginBottom: '28px' }}>
-        {[
-          { color: C.blue, icon: '📡', label: 'Track A — Organic Recall',  desc: 'Measures real-world reach and unaided retention.' },
-          { color: C.gold, icon: '🎬', label: 'Track B — Forced Exposure', desc: 'Measures creative quality isolated from media spend.' },
-        ].map(t => (
-          <div key={t.label} style={{ padding: '24px', background: C.card, border: `1px solid ${t.color}30`, borderRadius: '14px', textAlign: 'left' }}>
-            <span style={{ fontSize: '22px' }}>{t.icon}</span>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: t.color, margin: '10px 0 7px' }}>{t.label}</p>
-            <p style={{ fontSize: '13px', color: C.muted, lineHeight: 1.7 }}>{t.desc}</p>
-          </div>
-        ))}
+function MethodologySection({ navigate }) {
+  return (
+    <section style={{ padding: 'clamp(48px,8vw,96px) 5%', background: C.surface }}>
+      <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center' }}>
+        <p style={{ fontSize: '11px', letterSpacing: '4px', color: C.gold, fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px' }}>Methodology</p>
+        <h2 style={{ fontSize: 'clamp(22px,4vw,40px)', fontFamily: F.display, fontWeight: 700, marginBottom: '16px' }}>The reach vs. creative quality gap</h2>
+        <p style={{ fontSize: 'clamp(14px,2vw,16px)', color: C.muted, lineHeight: 1.8, maxWidth: '600px', margin: '0 auto 40px' }}>
+          Most brand trackers can't tell you if underperformance is a media problem or a creative problem. AdChasser separates them.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '14px', marginBottom: '28px' }}>
+          {[
+            { color: C.blue, icon: '📡', label: 'Track A — Organic Recall',  desc: 'Measures real-world reach and unaided retention.' },
+            { color: C.gold, icon: '🎬', label: 'Track B — Forced Exposure', desc: 'Measures creative quality isolated from media spend.' },
+          ].map(t => (
+            <div key={t.label} style={{ padding: '24px', background: C.card, border: `1px solid ${t.color}30`, borderRadius: '14px', textAlign: 'left' }}>
+              <span style={{ fontSize: '22px' }}>{t.icon}</span>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: t.color, margin: '10px 0 7px' }}>{t.label}</p>
+              <p style={{ fontSize: '13px', color: C.muted, lineHeight: 1.7 }}>{t.desc}</p>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => navigate('/how-it-works')} style={{ padding: '12px 28px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: '14px', fontFamily: F.sans, cursor: 'pointer' }}>
+          Learn More About The Methodology →
+        </button>
       </div>
-      <button onClick={() => navigate('/how-it-works')} style={{ padding: '12px 28px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: '14px', fontFamily: F.sans, cursor: 'pointer' }}>
-        Learn More About The Methodology →
-      </button>
-    </div>
-  </section>
-)
+    </section>
+  )
+}
 
 export default function HomePage({ user }) {
   const navigate = useNavigate()
@@ -55,41 +57,47 @@ export default function HomePage({ user }) {
 
   // ── CMS path — published page ─────────────────────────────────
   if (!loading && cmsPage) {
-    // Force center alignment on hero blocks so text always centres over video
-    const blocksWithCenterHero = cmsPage.cms_blocks.map(block => {
-      if (block.type === 'hero') {
-        return {
-          ...block,
-          content: {
-            ...block.content,
-            styles: {
-              ...block.content?.styles,
-              textAlign: block.content?.styles?.textAlign ?? 'center',
-            },
+    // Hard-force center on hero blocks — ignores whatever textAlign is in the DB
+    const blocks = cmsPage.cms_blocks.map(block => {
+      if (block.type !== 'hero') return block
+      return {
+        ...block,
+        content: {
+          ...block.content,
+          styles: {
+            ...block.content?.styles,
+            textAlign: 'center',
           },
-        }
+        },
       }
-      return block
     })
 
     return (
       <div style={{ background: C.bg, color: C.text, fontFamily: F.sans, minHeight: '100vh' }}>
         <SiteNav user={user} />
-        {blocksWithCenterHero.map(block => (
+        {blocks.map(block => (
           <BlockRenderer key={block.id} block={block} brandSettings={brandSettings} />
         ))}
-        <METHODOLOGY_SECTION navigate={navigate} />
+        <MethodologySection navigate={navigate} />
         <SiteFooter />
       </div>
     )
   }
 
-  // ── Fallback — hardcoded (CMS not yet published) ──────────────
+  // Show nothing while loading to prevent flicker
+  if (loading) {
+    return (
+      <div style={{ background: C.bg, minHeight: '100vh' }}>
+        <SiteNav user={user} />
+      </div>
+    )
+  }
+
+  // ── Fallback — hardcoded (CMS not published) ──────────────────
   return (
     <div style={{ background: C.bg, color: C.text, fontFamily: F.sans, minHeight: '100vh' }}>
       <SiteNav user={user} />
 
-      {/* Hero */}
       <section style={{ padding: 'clamp(60px,10vw,120px) 5% clamp(48px,8vw,96px)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)', width: 'min(500px,90vw)', height: '250px', background: `radial-gradient(ellipse,${C.gold}12,transparent 70%)`, pointerEvents: 'none' }} />
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 13px', borderRadius: '20px', background: C.goldDim, border: `1px solid ${C.gold}30`, marginBottom: '20px' }}>
@@ -117,7 +125,6 @@ export default function HomePage({ user }) {
         </div>
       </section>
 
-      {/* Features */}
       <section style={{ padding: 'clamp(48px,8vw,96px) 5%' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           <p style={{ fontSize: '11px', letterSpacing: '4px', color: C.gold, fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px', textAlign: 'center' }}>Platform Features</p>
@@ -136,9 +143,8 @@ export default function HomePage({ user }) {
         </div>
       </section>
 
-      <METHODOLOGY_SECTION navigate={navigate} />
+      <MethodologySection navigate={navigate} />
 
-      {/* CTA */}
       <section style={{ padding: 'clamp(60px,10vw,110px) 5%', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 'min(400px,80vw)', height: '250px', background: `radial-gradient(ellipse,${C.gold}10,transparent 70%)`, pointerEvents: 'none' }} />
         <h2 style={{ fontSize: 'clamp(24px,4vw,48px)', fontFamily: F.display, fontWeight: 700, marginBottom: '14px', position: 'relative' }}>Ready to know if your<br />campaign actually landed?</h2>
