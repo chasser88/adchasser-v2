@@ -444,7 +444,7 @@ export default function CMSEditor({ onExit }) {
   }, {})
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: F.sans, color: C.text }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: F.sans, color: C.text, position: 'fixed', inset: 0, zIndex: 9000, overflowY: 'auto', isolation: 'isolate' }}>
 
       {toast && (
         <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : C.green, color: '#fff', padding: '10px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
@@ -606,7 +606,7 @@ export default function CMSEditor({ onExit }) {
                                 </button>
                               ))}
                             </div>
-                            <div style={{ padding: '18px 20px', background: C.bg, maxHeight: '600px', overflowY: 'auto' }}>
+                            <div style={{ padding: '18px 20px', background: C.bg, maxHeight: '600px', overflowY: 'auto', position: 'relative', zIndex: 1 }}>
                               {editTab === 'content'
                                 ? <BlockForm type={block.type} content={editContent} onChange={setEditContent} />
                                 : <StylePanel styles={editStyles} onChange={setEditStyles} />
