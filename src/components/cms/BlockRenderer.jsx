@@ -17,7 +17,8 @@ function getEmbedUrl(url) {
 
 function isVideoUrl(url) {
   if (!url) return false
-  return /\.(mp4|webm|mov)(\?|$)/i.test(url)
+  // Check extension anywhere in the URL (handles Supabase storage URLs with query params)
+  return /\.(mp4|webm|mov)/i.test(url)
 }
 
 export default function BlockRenderer({ block, brandSettings }) {
@@ -52,7 +53,7 @@ export default function BlockRenderer({ block, brandSettings }) {
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%',
                 objectFit: 'cover',
-                opacity: 0.55,
+                opacity: 0.75,
                 zIndex: 0,
                 pointerEvents: 'none',
               }}
@@ -82,7 +83,7 @@ export default function BlockRenderer({ block, brandSettings }) {
         {bgIsVideo && (
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(to bottom, rgba(7,9,15,0.45) 0%, rgba(7,9,15,0.65) 100%)',
+            background: 'linear-gradient(to bottom, rgba(7,9,15,0.3) 0%, rgba(7,9,15,0.5) 100%)',
             zIndex: 0, pointerEvents: 'none',
           }} />
         )}
