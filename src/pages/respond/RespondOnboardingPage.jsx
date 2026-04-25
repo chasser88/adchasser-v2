@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, F } from '../tokens.js'
-import { updateRespondent } from '../lib/useRespondent.js'
-import { supabase } from '../lib/supabase.js'
+import { C, F } from '../../tokens.js'
+import { updateRespondent } from '../../lib/useRespondent.js'
+import { supabase } from '../../lib/supabase.js'
 
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',

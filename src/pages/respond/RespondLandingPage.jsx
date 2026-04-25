@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import { C, F } from '../tokens.js'
-import SiteNav from '../components/layout/SiteNav.jsx'
-import SiteFooter from '../components/layout/SiteFooter.jsx'
+import { C, F } from '../../tokens.js'
+import SiteNav from '../../components/layout/SiteNav.jsx'
+import SiteFooter from '../../components/layout/SiteFooter.jsx'
 
 const FEATURES = [
   { icon: '📋', title: 'Complete Brand Surveys',    desc: 'Share your honest opinions on real Nigerian and global brand campaigns.' },

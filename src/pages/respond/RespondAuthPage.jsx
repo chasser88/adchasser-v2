@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, F } from '../tokens.js'
-import { supabase } from '../lib/supabase.js'
-import { createRespondent } from '../lib/useRespondent.js'
-import logo from '../assets/AdChasser_Logo.png'
+import { C, F } from '../../tokens.js'
+import { supabase } from '../../lib/supabase.js'
+import { createRespondent } from '../../lib/useRespondent.js'
+import logo from '../../assets/AdChasser_Logo.png'
 
 export default function RespondAuthPage({ onAuth }) {
   const navigate = useNavigate()

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, F } from '../tokens.js'
-import RespondNav from '../components/respond/RespondNav.jsx'
-import { useRespondent, getWithdrawalHistory, getPaymentMethods } from '../lib/useRespondent.js'
-import { supabase } from '../lib/supabase.js'
+import { C, F } from '../../tokens.js'
+import RespondNav from '../../components/respond/RespondNav.jsx'
+import { useRespondent, getWithdrawalHistory, getPaymentMethods } from '../../lib/useRespondent.js'
+import { supabase } from '../../lib/supabase.js'
 
 const NIGERIAN_BANKS = [
   { name: 'Access Bank', code: '044' },
