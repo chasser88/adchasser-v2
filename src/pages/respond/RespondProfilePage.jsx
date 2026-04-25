@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, F } from '../../tokens.js'
-import RespondNav from '../../components/respond/RespondNav.jsx'
-import { useRespondent, updateRespondent } from '../../lib/useRespondent.js'
-import { supabase } from '../../lib/supabase.js'
+import { C, F } from '../tokens.js'
+import RespondNav from '../components/respond/RespondNav.jsx'
+import { useRespondent, updateRespondent } from '../lib/useRespondent.js'
+import { supabase } from '../lib/supabase.js'
 
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
@@ -277,14 +277,32 @@ export default function RespondProfilePage({ user }) {
           {tab === 'account' && (
             <div>
               <h3 style={{ fontSize: '15px', fontFamily: F.display, fontWeight: 700, marginBottom: '18px' }}>Account Settings</h3>
+
+              {/* Email — read only */}
               <div style={{ padding: '14px 16px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', marginBottom: '14px' }}>
                 <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Email Address</p>
                 <p style={{ fontSize: '14px', color: C.text, fontFamily: F.sans }}>{user?.email}</p>
               </div>
-              <div style={{ padding: '14px 16px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', marginBottom: '20px' }}>
-                <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Phone Number</p>
-                <p style={{ fontSize: '14px', color: form.phone ? C.text : C.dim, fontFamily: F.sans }}>{form.phone ?? 'Not added yet'}</p>
+
+              {/* Phone — editable */}
+              <div style={{ marginBottom: '14px' }}>
+                <label style={lbl}>Phone Number</label>
+                <input
+                  type="tel"
+                  value={form.phone ?? ''}
+                  onChange={e => set('phone', e.target.value)}
+                  placeholder="+234 800 000 0000"
+                  style={inp}
+                />
+                <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, marginTop: '4px' }}>
+                  Used for account verification. One phone number per account.
+                </p>
               </div>
+
+              {/* Save phone button */}
+              <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: '11px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '13px', fontWeight: 700, fontFamily: F.sans, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, marginBottom: '20px' }}>
+                {saving ? 'Saving…' : '✓ Save Account Details'}
+              </button>
 
               {/* WhatsApp */}
               <a href="https://chat.whatsapp.com/PLACEHOLDER" target="_blank" rel="noopener noreferrer"
@@ -303,7 +321,7 @@ export default function RespondProfilePage({ user }) {
           )}
         </div>
 
-        {/* Save button — not shown on account tab */}
+        {/* Save button — not shown on account tab (it has its own save button) */}
         {tab !== 'account' && (
           <button onClick={handleSave} disabled={saving} style={{ width: '100%', padding: '13px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, marginTop: '16px' }}>
             {saving ? 'Saving…' : '✓ Save Changes'}
