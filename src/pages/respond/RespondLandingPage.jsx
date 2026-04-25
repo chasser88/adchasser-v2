@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { C, F } from '../../tokens.js'
-import SiteNav from '../../components/layout/SiteNav.jsx'
 import SiteFooter from '../../components/layout/SiteFooter.jsx'
+import logo from '../../assets/AdChasser_Logo.png'
 
 const FEATURES = [
   { icon: '📋', title: 'Complete Brand Surveys',    desc: 'Share your honest opinions on real Nigerian and global brand campaigns.' },
@@ -24,7 +24,25 @@ export default function RespondLandingPage({ user }) {
 
   return (
     <div style={{ background: C.bg, color: C.text, fontFamily: F.sans, minHeight: '100vh' }}>
-      <SiteNav user={user} />
+
+      {/* Respondent-specific top nav — no brand manager links */}
+      <nav style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: '0 5%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => navigate('/respond')}>
+          <img src={logo} alt="AdChasser" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+          <div>
+            <p style={{ fontSize: '13px', fontWeight: 700, fontFamily: F.display, color: C.text, margin: 0, lineHeight: 1 }}>AdChasser</p>
+            <p style={{ fontSize: '9px', color: C.gold, fontFamily: F.sans, margin: 0, letterSpacing: '1px', textTransform: 'uppercase' }}>Panel</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button onClick={() => navigate('/respond/auth')} style={{ padding: '8px 18px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '8px', color: C.text, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer' }}>
+            Sign In
+          </button>
+          <button onClick={() => navigate('/respond/auth')} style={{ padding: '8px 18px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '8px', color: C.bg, fontSize: '13px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+            Join Free →
+          </button>
+        </div>
+      </nav>
 
       {/* Hero */}
       <section style={{ padding: 'clamp(60px,10vw,120px) 5% clamp(48px,8vw,96px)', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
@@ -44,14 +62,26 @@ export default function RespondLandingPage({ user }) {
           Join the AdChasser Panel. Complete brand surveys and earn ₦1,000 per survey. Withdraw directly to your bank account.
         </p>
 
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '48px' }}>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
           <button onClick={() => navigate('/respond/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
             Join the Panel — It's Free →
           </button>
-          <button onClick={() => { const el = document.getElementById('how'); el?.scrollIntoView({ behavior: 'smooth' }) }} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: 'clamp(13px,2vw,15px)', fontFamily: F.sans, cursor: 'pointer' }}>
-            How it works
+          <button onClick={() => navigate('/respond/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: 'clamp(13px,2vw,15px)', fontFamily: F.sans, cursor: 'pointer' }}>
+            Sign In →
           </button>
         </div>
+
+        {/* Returning member link */}
+        <p style={{ fontSize: '13px', color: C.muted, fontFamily: F.sans, marginBottom: '32px' }}>
+          Already a member?{' '}
+          <button onClick={() => navigate('/respond/auth')} style={{ color: C.gold, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontFamily: F.sans, fontWeight: 600, textDecoration: 'underline' }}>
+            Sign in to your account →
+          </button>
+        </p>
+
+        <button onClick={() => { const el = document.getElementById('how'); el?.scrollIntoView({ behavior: 'smooth' }) }} style={{ fontSize: '13px', color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: F.sans, marginBottom: '48px' }}>
+          ↓ How it works
+        </button>
 
         {/* Stats strip */}
         <div style={{ display: 'flex', justifyContent: 'center', borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, F } from '../../tokens.js'
-import RespondNav from '../../components/respond/RespondNav.jsx'
-import { useRespondent, getAvailableSurveys, getCompletionHistory } from '../../lib/useRespondent.js'
+import { C, F } from '../tokens.js'
+import RespondNav from '../components/respond/RespondNav.jsx'
+import { useRespondent, getAvailableSurveys, getCompletionHistory } from '../lib/useRespondent.js'
 
 const WITHDRAWAL_TARGET = 10000
 
@@ -196,39 +196,61 @@ function SurveyCard({ survey, onStart }) {
 }
 
 function HistoryCard({ item }) {
+  const navigate = useNavigate()
   const statusConfig = {
-    approved:    { color: C.green,  label: 'Approved',     icon: '✓' },
-    pending:     { color: C.gold,   label: 'Under Review', icon: '⏳' },
-    rejected:    { color: '#ef4444', label: 'Rejected',    icon: '✗' },
-    retry_allowed: { color: C.blue, label: 'Retry Allowed', icon: '↺' },
+    approved:    { color: C.green,   label: 'Approved',      icon: '✓' },
+    pending:     { color: C.gold,    label: 'Under Review',  icon: '⏳' },
+    rejected:    { color: '#ef4444', label: 'Rejected',      icon: '✗' },
+    retry_allowed: { color: C.blue,  label: 'Retry Allowed', icon: '↺' },
   }
   const s = statusConfig[item.quality_status] ?? statusConfig.pending
   const brand = item.campaigns?.brands
+  const canRetry = item.quality_status === 'retry_allowed' &&
+    item.campaigns?.survey_slug &&
+    (!item.retry_allowed_until || new Date(item.retry_allowed_until) > new Date())
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: (brand?.color ?? C.gold) + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: brand?.color ?? C.gold, fontFamily: F.sans, flexShrink: 0 }}>
-          {brand?.logo_char ?? '?'}
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '16px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: (brand?.color ?? C.gold) + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: brand?.color ?? C.gold, fontFamily: F.sans, flexShrink: 0 }}>
+            {brand?.logo_char ?? '?'}
+          </div>
+          <div>
+            <p style={{ fontSize: '13px', fontWeight: 600, fontFamily: F.sans, margin: '0 0 3px' }}>{item.campaigns?.name ?? 'Survey'}</p>
+            <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, margin: 0 }}>
+              {new Date(item.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+              {item.quality_score > 0 && ` · Quality score: ${item.quality_score}/100`}
+            </p>
+          </div>
         </div>
-        <div>
-          <p style={{ fontSize: '13px', fontWeight: 600, fontFamily: F.sans, margin: '0 0 3px' }}>{item.campaigns?.name ?? 'Survey'}</p>
-          <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, margin: 0 }}>
-            {new Date(item.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
-            {item.quality_score > 0 && ` · Quality score: ${item.quality_score}/100`}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: '16px', fontWeight: 700, color: item.payment_status === 'credited' ? C.green : C.muted, fontFamily: F.display, margin: '0 0 2px' }}>
+              {item.payment_status === 'credited' ? '+' : ''}₦{item.reward_amount?.toLocaleString() ?? '1,000'}
+            </p>
+            <span style={{ fontSize: '10px', background: s.color + '18', color: s.color, border: `1px solid ${s.color}30`, borderRadius: '8px', padding: '2px 8px', fontFamily: F.sans, fontWeight: 600 }}>
+              {s.icon} {s.label}
+            </span>
+          </div>
+          {canRetry && (
+            <button
+              onClick={() => navigate(`/survey/${item.campaigns.survey_slug}`)}
+              style={{ padding: '8px 14px', background: C.goldDim, border: `1px solid ${C.gold}40`, borderRadius: '8px', color: C.gold, fontSize: '12px', fontWeight: 600, fontFamily: F.sans, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              ↺ Retry
+            </button>
+          )}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <div style={{ textAlign: 'right' }}>
-          <p style={{ fontSize: '16px', fontWeight: 700, color: item.payment_status === 'credited' ? C.green : C.muted, fontFamily: F.display, margin: '0 0 2px' }}>
-            {item.payment_status === 'credited' ? '+' : ''}₦{item.reward_amount?.toLocaleString() ?? '1,000'}
-          </p>
-          <span style={{ fontSize: '10px', background: s.color + '18', color: s.color, border: `1px solid ${s.color}30`, borderRadius: '8px', padding: '2px 8px', fontFamily: F.sans, fontWeight: 600 }}>
-            {s.icon} {s.label}
-          </span>
+      {/* Quality flags feedback */}
+      {item.quality_flags?.length > 0 && (
+        <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '8px' }}>
+          {item.quality_flags.map((flag, i) => (
+            <p key={i} style={{ fontSize: '12px', color: '#f97316', margin: i > 0 ? '4px 0 0' : 0, lineHeight: 1.5 }}>⚠️ {flag.message}</p>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }
