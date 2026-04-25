@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { C, F } from '../../tokens.js'
 
 // Shown to ALL respondents after survey completion — good scores get reinforcement, poor scores get feedback
-export default function SurveyQualityResult({ score, flags, passed, onRetry, campaignName }) {
+export default function SurveyQualityResult({ score, flags, passed, onRetry, campaignName, isRespondent = false }) {
   const navigate = useNavigate()
 
   const getScoreConfig = () => {
@@ -127,8 +127,8 @@ export default function SurveyQualityResult({ score, flags, passed, onRetry, cam
             </div>
           )}
 
-          {/* Reward status */}
-          {passed ? (
+          {/* Reward status — only for panel respondents */}
+          {isRespondent && passed && (
             <div style={{ padding: '12px 16px', background: `${C.green}12`, border: `1px solid ${C.green}30`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <span style={{ fontSize: '20px' }}>💰</span>
               <div style={{ textAlign: 'left' }}>
@@ -136,7 +136,8 @@ export default function SurveyQualityResult({ score, flags, passed, onRetry, cam
                 <p style={{ fontSize: '11px', color: C.muted, margin: 0 }}>Will appear in your wallet within 24 hours after final review</p>
               </div>
             </div>
-          ) : (
+          )}
+          {isRespondent && !passed && (
             <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
               <span style={{ fontSize: '20px' }}>⏸️</span>
               <div style={{ textAlign: 'left' }}>

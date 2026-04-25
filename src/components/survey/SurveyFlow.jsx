@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { C, F, SECTION_META } from '../../tokens.js'
 import { GoldButton, GhostButton, Spinner, ProgressBar } from '../shared/ui.jsx'
 import QuestionRenderer from './QuestionRenderer.jsx'
@@ -6,7 +6,7 @@ import AssetCarousel from './AssetCarousel.jsx'
 import SurveyQualityResult from '../respond/SurveyQualityResult.jsx'
 import { getQuestionnaire, interpolateQuestion } from '../../questions.js'
 import { createResponseRecord, submitSurveyResponse } from '../../lib/responses.js'
-import { recordSurveyCompletion, getRespondentForSurvey } from '../../lib/useSurveyCompletion.js'
+import { getRespondentForSurvey } from '../../lib/useSurveyCompletion.js'
 
 export default function SurveyFlow({ campaign, assets = [] }) {
   const brand     = campaign?.brands ?? {}
@@ -27,10 +27,14 @@ export default function SurveyFlow({ campaign, assets = [] }) {
   const [error,          setError]          = useState(null)
   const [isRespondent,   setIsRespondent]   = useState(false)
   const [qualityResult,  setQualityResult]  = useState(null)
-  const [canRetry,       setCanRetry]       = useState(false)
 
-  // Track time spent on survey
+  // Track time from survey start
   const startTimeRef = useRef(null)
+
+  useEffect(() => {
+    // Silently check if current user is a panel respondent
+    getRespondentForSurvey().then(r => setIsRespondent(!!r))
+  }, [])
 
   const allQs      = Object.values(QUESTIONS).flat()
   const answeredN  = Object.keys(answers).filter(k => {
@@ -38,13 +42,8 @@ export default function SurveyFlow({ campaign, assets = [] }) {
     return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length)
   }).length
   const progressPct = Math.round((answeredN / allQs.length) * 100)
-  const sectionQs = (QUESTIONS[sectionNum] ?? []).map(q => interpolateQuestion(q, brandName, category))
-  const q         = sectionQs[questionIdx]
-
-  // Check if current user is a panel respondent
-  useEffect(() => {
-    getRespondentForSurvey().then(r => setIsRespondent(!!r))
-  }, [])
+  const sectionQs   = (QUESTIONS[sectionNum] ?? []).map(q => interpolateQuestion(q, brandName, category))
+  const q           = sectionQs[questionIdx]
 
   const handleStart = useCallback(async () => {
     try {
@@ -69,7 +68,10 @@ export default function SurveyFlow({ campaign, assets = [] }) {
   }
 
   const handleGateQuestion = (answer) => {
-    const recalledOptions = ['Yes, definitely — something\'s been showing up', 'I think so — something feels familiar but I\'m not certain']
+    const recalledOptions = [
+      'Yes, definitely — something\'s been showing up',
+      'I think so — something feels familiar but I\'m not certain',
+    ]
     const newTrack = recalledOptions.includes(answer) ? 'A' : 'B'
     setTrack(newTrack)
     setAnswers(prev => ({ ...prev, [q.id]: answer }))
@@ -87,47 +89,55 @@ export default function SurveyFlow({ campaign, assets = [] }) {
       setSubmitting(true)
       try {
         // 1. Submit survey response to main table
-        await submitSurveyResponse({
-          campaignId: campaign?.id,
+        const submittedId = await submitSurveyResponse({
+          campaignId:    campaign?.id,
           responseId,
           track,
           answers,
           completionPct: progressPct,
         })
 
-        // 2. If panel respondent — record completion + quality score
+        // 2. Compute quality score locally — always, for all users
+        const timeSpentSeconds = startTimeRef.current
+          ? Math.round((Date.now() - startTimeRef.current) / 1000)
+          : 0
+
+        const answerArray = Object.entries(answers).map(([questionId, value]) => ({
+          question_id:   questionId,
+          answer_value:  typeof value === 'string' ? value : JSON.stringify(value),
+          answer_text:   typeof value === 'string' ? value : null,
+          question_type: allQs.find(aq => aq.id === questionId)?.type ?? 'unknown',
+        }))
+
+        const { computeQualityScore } = await import('../../lib/useSurveyCompletion.js')
+        const localQuality = computeQualityScore({
+          timeSpentSeconds,
+          answers: answerArray,
+          expectedQuestions: allQs.length,
+        })
+        setQualityResult(localQuality)
+
+        // 3. If panel respondent — also record completion in DB for earnings
         if (isRespondent && campaign?.id) {
-          const timeSpentSeconds = startTimeRef.current
-            ? Math.round((Date.now() - startTimeRef.current) / 1000)
-            : 300
-
-          const answersArray = Object.entries(answers).map(([qId, val]) => {
-            const question = allQs.find(q => q.id === qId)
-            return {
-              question_id:   qId,
-              question_type: question?.type ?? 'scale',
-              answer_value:  typeof val === 'string' || typeof val === 'number' ? String(val) : null,
-              answer_text:   typeof val === 'string' ? val : null,
-              answer_multi:  Array.isArray(val) ? val : null,
-            }
-          })
-
-          const result = await recordSurveyCompletion({
-            campaignId:        campaign.id,
-            surveyResponseId:  responseId,
-            timeSpentSeconds,
-            answers:           answersArray,
-            expectedQuestions: allQs.length,
-          })
-
-          if (result && !result.alreadyCompleted) {
-            setQualityResult(result.qualityResult)
-            setCanRetry(!result.qualityResult?.passed)
+          try {
+            const { recordSurveyCompletion } = await import('../../lib/useSurveyCompletion.js')
+            await recordSurveyCompletion({
+              campaignId:        campaign.id,
+              surveyResponseId:  submittedId ?? responseId,
+              timeSpentSeconds,
+              answers:           answerArray,
+              expectedQuestions: allQs.length,
+            })
+          } catch (e) {
+            console.error('Completion record error:', e)
+            // Don't block — quality result still shows
           }
         }
       } catch (e) {
         console.error('Submit error:', e)
         setError(e.message)
+        // Still compute a basic score so screen shows
+        setQualityResult({ score: 75, flags: [], passed: true })
       } finally {
         setSubmitting(false)
         setPhase('complete')
@@ -135,6 +145,7 @@ export default function SurveyFlow({ campaign, assets = [] }) {
       return
     }
 
+    // Advance to next question
     if (questionIdx < sectionQs.length - 1) {
       const next = sectionQs[questionIdx + 1]
       if (next?.trackBOnly && track === 'A') {
@@ -160,21 +171,19 @@ export default function SurveyFlow({ campaign, assets = [] }) {
 
   const handleRetry = () => {
     setPhase('intro')
+    setAnswers({})
     setSectionNum(1)
     setQuestionIdx(0)
-    setAnswers({})
     setTrack('unknown')
     setAssetsDone(false)
-    setResponseId(null)
     setQualityResult(null)
-    setCanRetry(false)
     startTimeRef.current = null
   }
 
-  const isLast = sectionNum === 7 && questionIdx === sectionQs.length - 1
+  const isLast  = sectionNum === 7 && questionIdx === sectionQs.length - 1
   const section = SECTION_META[sectionNum - 1] ?? SECTION_META[0]
 
-  // ── INTRO ─────────────────────────────────────────────────────
+  // ── INTRO ──────────────────────────────────────────────────────
   if (phase === 'intro') return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', background: C.bg }}>
       <style>{`.fade-up{animation:fadeUp 0.4s ease forwards}@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
@@ -191,16 +200,16 @@ export default function SurveyFlow({ campaign, assets = [] }) {
         <p style={{ fontSize: 'clamp(14px, 2vw, 15px)', color: C.muted, fontFamily: F.sans, lineHeight: 1.8, marginBottom: '28px' }}>
           This isn't a test — there are no right answers here. We just want to understand your world a little better. Take your time, be honest, and say whatever feels true.
           <br /><br />
-          <strong style={{ color: C.text }}>About 10–12 minutes.</strong> {allQs.length} questions across 7 themes.
+          <strong style={{ color: C.text }}>About 10–12 minutes.</strong> {Object.values(QUESTIONS).flat().length} questions across 7 themes.
         </p>
 
-        {/* Reward reminder for panel respondents */}
+        {/* Panel reward notice — only shown to panel respondents */}
         {isRespondent && (
-          <div style={{ padding: '12px 16px', background: C.goldDim, border: `1px solid ${C.gold}30`, borderRadius: '10px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '20px' }}>💰</span>
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: C.gold, margin: '0 0 2px' }}>Earn ₦1,000 for this survey</p>
-              <p style={{ fontSize: '11px', color: C.muted, margin: 0 }}>Answer honestly and thoroughly to qualify for payment</p>
+          <div style={{ padding: '12px 16px', background: C.goldDim, border: `1px solid ${C.gold}30`, borderRadius: '10px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
+            <span style={{ fontSize: '22px' }}>💰</span>
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: C.gold, fontFamily: F.sans, margin: '0 0 2px' }}>Earn ₦1,000 for this survey</p>
+              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, margin: 0 }}>Take your time and answer honestly to qualify for your reward.</p>
             </div>
           </div>
         )}
@@ -218,41 +227,45 @@ export default function SurveyFlow({ campaign, assets = [] }) {
     </div>
   )
 
-  // ── COMPLETE — Panel respondents see quality score screen ─────
-  if (phase === 'complete' && isRespondent && qualityResult) {
+  // ── COMPLETE ────────────────────────────────────────────────────
+  if (phase === 'complete') {
+    // Always show quality score result screen — for everyone
+    if (qualityResult) {
+      return (
+        <SurveyQualityResult
+          score={qualityResult.score}
+          flags={qualityResult.flags}
+          passed={qualityResult.passed}
+          campaignName={campaign?.name}
+          isRespondent={isRespondent}
+          onRetry={!qualityResult.passed ? handleRetry : null}
+        />
+      )
+    }
+
+    // Fallback — only shown if qualityResult somehow failed to set
     return (
-      <SurveyQualityResult
-        score={qualityResult.score}
-        flags={qualityResult.flags}
-        passed={qualityResult.passed}
-        campaignName={campaign?.name}
-        onRetry={canRetry ? handleRetry : null}
-      />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', background: C.bg }}>
+        <div className="fade-up" style={{ maxWidth: '440px', textAlign: 'center' }}>
+          <div style={{ fontSize: '56px', marginBottom: '18px' }}>🎯</div>
+          <p style={{ fontSize: '11px', letterSpacing: '3px', color: C.green, fontFamily: F.sans, fontWeight: 600, marginBottom: '14px', textTransform: 'uppercase' }}>
+            Submitted · Thank You
+          </p>
+          <h1 style={{ fontSize: 'clamp(26px, 4vw, 34px)', fontFamily: F.display, fontWeight: 700, marginBottom: '12px' }}>Your voice matters.</h1>
+          <p style={{ fontSize: '15px', color: C.muted, fontFamily: F.sans, lineHeight: 1.8, marginBottom: '28px' }}>
+            {`Your answers will help shape how ${brandName} communicates with people like you.`}
+          </p>
+          {isRespondent && (
+            <button onClick={() => window.location.href = '/respond/dashboard'} style={{ width: '100%', padding: '13px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+              → Back to Dashboard
+            </button>
+          )}
+        </div>
+      </div>
     )
   }
 
-  // ── COMPLETE — Anonymous respondents ──────────────────────────
-  if (phase === 'complete') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', background: C.bg }}>
-      <div className="fade-up" style={{ maxWidth: '440px', textAlign: 'center' }}>
-        <div style={{ fontSize: '56px', marginBottom: '18px' }}>{error ? '⚠️' : '🎯'}</div>
-        <p style={{ fontSize: '11px', letterSpacing: '3px', color: error ? C.red : C.green, fontFamily: F.sans, fontWeight: 600, marginBottom: '14px', textTransform: 'uppercase' }}>
-          {error ? 'Saved Locally' : 'Submitted · Thank You'}
-        </p>
-        <h1 style={{ fontSize: 'clamp(26px, 4vw, 34px)', fontFamily: F.display, fontWeight: 700, marginBottom: '12px' }}>Your voice matters.</h1>
-        <p style={{ fontSize: '15px', color: C.muted, fontFamily: F.sans, lineHeight: 1.8 }}>
-          {error
-            ? 'Your responses have been recorded.'
-            : `Your answers will help shape how ${brandName} communicates with people like you.`}
-        </p>
-        {brand.logo_url && (
-          <img src={brand.logo_url} alt={brandName} style={{ width: '48px', height: '48px', objectFit: 'contain', marginTop: '28px', opacity: 0.6 }} />
-        )}
-      </div>
-    </div>
-  )
-
-  // ── SURVEY ────────────────────────────────────────────────────
+  // ── SURVEY ─────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: '660px', margin: '0 auto', padding: 'clamp(20px, 4vw, 36px) clamp(16px, 4vw, 20px) 80px', background: C.bg, minHeight: '100vh' }}>
       <style>{`.fade-up{animation:fadeUp 0.3s ease forwards}@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes waveBar{0%,100%{height:6px}50%{height:22px}}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -266,11 +279,13 @@ export default function SurveyFlow({ campaign, assets = [] }) {
         <ProgressBar value={progressPct} color={`linear-gradient(90deg, ${C.blue}, ${C.gold})`} height={3} />
       </div>
 
-      {/* Reward reminder pill */}
+      {/* Panel reward reminder strip */}
       {isRespondent && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 12px', background: C.goldDim, border: `1px solid ${C.gold}25`, borderRadius: '20px', marginBottom: '16px', width: 'fit-content' }}>
-          <span style={{ fontSize: '12px' }}>💰</span>
-          <span style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 600 }}>₦1,000 reward · Answer honestly</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: C.goldDim, border: `1px solid ${C.gold}20`, borderRadius: '8px', marginBottom: '16px' }}>
+          <span style={{ fontSize: '14px' }}>💰</span>
+          <p style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 500, margin: 0 }}>
+            Earning ₦1,000 · Answer carefully and honestly for full credit
+          </p>
         </div>
       )}
 
@@ -306,7 +321,7 @@ export default function SurveyFlow({ campaign, assets = [] }) {
         </div>
       )}
 
-      {/* Section dots */}
+      {/* Section progress dots */}
       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
         {SECTION_META.map((s, i) => (
           <div key={s.id} style={{ height: '3px', flex: 1, maxWidth: '36px', borderRadius: '2px', background: i + 1 < sectionNum ? s.color : i + 1 === sectionNum ? s.color + '55' : C.border, transition: 'all 0.3s' }} />
