@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase.js'
 import { C } from './tokens.js'
 
-// Pages
+// ── Brand manager pages ───────────────────────────────────────
 import HomePage        from './pages/HomePage.jsx'
 import ProductPage     from './pages/ProductPage.jsx'
 import HowItWorksPage  from './pages/HowItWorksPage.jsx'
@@ -18,6 +18,14 @@ import InsightsPage    from './pages/InsightsPage.jsx'
 import SurveyPage      from './pages/SurveyPage.jsx'
 import NotFoundPage    from './pages/NotFoundPage.jsx'
 
+// ── Respondent platform pages ─────────────────────────────────
+import RespondLandingPage    from './pages/respond/RespondLandingPage.jsx'
+import RespondAuthPage       from './pages/respond/RespondAuthPage.jsx'
+import RespondOnboardingPage from './pages/respond/RespondOnboardingPage.jsx'
+import RespondDashboardPage  from './pages/respond/RespondDashboardPage.jsx'
+import RespondWalletPage     from './pages/respond/RespondWalletPage.jsx'
+import RespondProfilePage    from './pages/respond/RespondProfilePage.jsx'
+
 export const ADMIN_EMAIL = 'charlzillion@gmail.com'
 
 const Loader = () => (
@@ -28,10 +36,17 @@ const Loader = () => (
   </div>
 )
 
-// Guard — redirects to /auth if not logged in
+// Guard — redirects to /auth if not logged in (brand managers)
 function PrivateRoute({ user, children }) {
   if (user === undefined) return <Loader />
   if (!user) return <Navigate to="/auth" replace />
+  return children
+}
+
+// Guard — redirects to /respond/auth if not logged in (respondents)
+function RespondPrivateRoute({ user, children }) {
+  if (user === undefined) return <Loader />
+  if (!user) return <Navigate to="/respond/auth" replace />
   return children
 }
 
@@ -49,13 +64,13 @@ export default function App() {
   return (
     <Routes>
       {/* ── Public site ── */}
-      <Route path="/"              element={<HomePage     user={user} />} />
-      <Route path="/product"       element={<ProductPage  user={user} />} />
+      <Route path="/"              element={<HomePage       user={user} />} />
+      <Route path="/product"       element={<ProductPage    user={user} />} />
       <Route path="/how-it-works"  element={<HowItWorksPage user={user} />} />
-      <Route path="/pricing"       element={<PricingPage  user={user} />} />
-      <Route path="/about"         element={<AboutPage    user={user} />} />
+      <Route path="/pricing"       element={<PricingPage    user={user} />} />
+      <Route path="/about"         element={<AboutPage      user={user} />} />
 
-      {/* ── Auth ── */}
+      {/* ── Brand manager auth ── */}
       <Route path="/auth"          element={user ? <Navigate to="/app" replace /> : <AuthPage onAuth={setUser} />} />
       <Route path="/auth/reset"    element={<ResetPassword />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
@@ -63,15 +78,24 @@ export default function App() {
       {/* ── Survey (public) ── */}
       <Route path="/survey/:slug"  element={<SurveyPage />} />
 
-      {/* ── Platform (private) ── */}
+      {/* ── Brand manager platform (private) ── */}
       <Route path="/app"           element={<PrivateRoute user={user}><AppPage user={user} setUser={setUser} /></PrivateRoute>} />
       <Route path="/app/setup"     element={<PrivateRoute user={user}><AppPage user={user} setUser={setUser} tab="setup" /></PrivateRoute>} />
       <Route path="/app/insights/:campaignId" element={<PrivateRoute user={user}><InsightsPage user={user} setUser={setUser} /></PrivateRoute>} />
       <Route path="/app/admin"     element={<PrivateRoute user={user}><AppPage user={user} setUser={setUser} tab="admin" /></PrivateRoute>} />
       <Route path="/app/cms"       element={<PrivateRoute user={user}><AppPage user={user} setUser={setUser} tab="cms" /></PrivateRoute>} />
 
+      {/* ── Respondent platform ── */}
+      <Route path="/respond"            element={<RespondLandingPage user={user} />} />
+      <Route path="/respond/auth"       element={user ? <Navigate to="/respond/dashboard" replace /> : <RespondAuthPage onAuth={setUser} />} />
+      <Route path="/respond/auth/callback" element={<AuthCallback redirectTo="/respond/dashboard" />} />
+      <Route path="/respond/onboarding" element={<RespondPrivateRoute user={user}><RespondOnboardingPage user={user} /></RespondPrivateRoute>} />
+      <Route path="/respond/dashboard"  element={<RespondPrivateRoute user={user}><RespondDashboardPage  user={user} /></RespondPrivateRoute>} />
+      <Route path="/respond/wallet"     element={<RespondPrivateRoute user={user}><RespondWalletPage     user={user} /></RespondPrivateRoute>} />
+      <Route path="/respond/profile"    element={<RespondPrivateRoute user={user}><RespondProfilePage    user={user} /></RespondPrivateRoute>} />
+
       {/* ── 404 ── */}
-      <Route path="*"              element={<NotFoundPage />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
