@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, F } from '../tokens.js'
-import RespondNav from '../components/respond/RespondNav.jsx'
-import { useRespondent, getAvailableSurveys, getCompletionHistory } from '../lib/useRespondent.js'
+import { C, F } from '../../tokens.js'
+import RespondNav from '../../components/respond/RespondNav.jsx'
+import { useRespondent, getAvailableSurveys, getCompletionHistory } from '../../lib/useRespondent.js'
 
 const WITHDRAWAL_TARGET = 10000
 
