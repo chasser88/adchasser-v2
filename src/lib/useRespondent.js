@@ -93,24 +93,25 @@ export async function updateRespondent(id, payload) {
 export async function getAvailableSurveys(respondent) {
   if (!respondent) return []
 
-  // Get all active campaigns
+  // Get all campaigns that are active OR have been activated
   const { data: campaigns } = await supabase
     .from('campaigns')
     .select('*, brands(name, logo_char, color, logo_url)')
-    .eq('status', 'active')
+    .in('status', ['active', 'completed'])
+    .not('survey_slug', 'is', null)
 
   if (!campaigns?.length) return []
 
-  // Get already completed surveys
+  // Get already completed or pending surveys for this respondent
   const { data: completed } = await supabase
     .from('respondent_completions')
-    .select('campaign_id')
+    .select('campaign_id, quality_status')
     .eq('respondent_id', respondent.id)
-    .in('quality_status', ['pending', 'approved', 'retry_allowed'])
+    .in('quality_status', ['pending', 'approved'])
 
   const completedIds = new Set(completed?.map(c => c.campaign_id) ?? [])
 
-  // Filter out completed and check demographic match
+  // Filter: not already completed + demographic match
   return campaigns.filter(c => {
     if (completedIds.has(c.id)) return false
     return matchesDemographic(c, respondent)
@@ -119,16 +120,30 @@ export async function getAvailableSurveys(respondent) {
 
 function matchesDemographic(campaign, respondent) {
   const coverage = campaign.coverage ?? []
-  if (!coverage.length) return true // broad targeting — show to all
 
-  // Check geographic match
-  if (respondent.state) {
-    const stateMatch = coverage.some(c =>
-      c.country === (respondent.country ?? 'Nigeria') &&
-      (c.region === respondent.state || c.region === 'Pan Nigeria')
+  // No coverage set — show to everyone
+  if (!coverage.length) return true
+
+  // If respondent has no state set — show all campaigns (profile incomplete)
+  if (!respondent.state && !respondent.country) return true
+
+  const respondentCountry = respondent.country ?? 'Nigeria'
+  const respondentState   = respondent.state ?? null
+
+  // Check if any coverage item matches respondent's location
+  const countryMatch = coverage.some(c => c.country === respondentCountry)
+
+  // If no coverage items match their country at all — don't show
+  if (!countryMatch) return false
+
+  // If respondent has a state — check state-level match
+  if (respondentState) {
+    return coverage.some(c =>
+      c.country === respondentCountry && c.region === respondentState
     )
-    if (!stateMatch) return false
   }
+
+  // Respondent has country but no state — show if country matches
   return true
 }
 
