@@ -180,36 +180,72 @@ export default function SurveyFlow({ campaign, assets = [] }) {
     startTimeRef.current = null
   }
 
+  // Scroll to top on every question change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [sectionNum, questionIdx])
+
+  // Universal mobile keyboard fix — iOS Safari + Android Chrome
+  useEffect(() => {
+    // Method 1: visualViewport API (works on both iOS and Android modern browsers)
+    const vv = window.visualViewport
+    if (vv) {
+      const handleViewportResize = () => {
+        const keyboardVisible = vv.height < window.innerHeight * 0.75
+        if (!keyboardVisible) {
+          // Keyboard dismissed — scroll to top of current question
+          setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100)
+        }
+      }
+      vv.addEventListener('resize', handleViewportResize)
+      vv.addEventListener('scroll', handleViewportResize)
+      return () => {
+        vv.removeEventListener('resize', handleViewportResize)
+        vv.removeEventListener('scroll', handleViewportResize)
+      }
+    }
+
+    // Method 2: Fallback for older Android WebView (resize event on window)
+    const handleWindowResize = () => {
+      const activeEl = document.activeElement
+      const isInput  = activeEl && ['INPUT','TEXTAREA','SELECT'].includes(activeEl.tagName)
+      if (!isInput) {
+        setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 150)
+      }
+    }
+    window.addEventListener('resize', handleWindowResize)
+    return () => window.removeEventListener('resize', handleWindowResize)
+  }, [])
+
   const isLast  = sectionNum === 7 && questionIdx === sectionQs.length - 1
   const section = SECTION_META[sectionNum - 1] ?? SECTION_META[0]
 
   // ── INTRO ──────────────────────────────────────────────────────
   if (phase === 'intro') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', background: C.bg }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(24px,6vw,48px) clamp(16px,5vw,40px)', background: C.bg }}>
       <style>{`.fade-up{animation:fadeUp 0.4s ease forwards}@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div className="fade-up" style={{ maxWidth: '480px', textAlign: 'center' }}>
+      <div className="fade-up" style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
         {brand.logo_url && (
           <img src={brand.logo_url} alt={brandName} style={{ width: '64px', height: '64px', objectFit: 'contain', marginBottom: '20px' }} />
         )}
         <p style={{ fontSize: '11px', letterSpacing: '3px', color: C.gold, fontFamily: F.sans, fontWeight: 600, marginBottom: '14px', textTransform: 'uppercase' }}>
           Brand Research Survey
         </p>
-        <h1 style={{ fontSize: 'clamp(26px, 5vw, 36px)', fontFamily: F.display, fontWeight: 700, marginBottom: '16px', lineHeight: 1.15 }}>
+        <h1 style={{ fontSize: 'clamp(24px, 5vw, 36px)', fontFamily: F.display, fontWeight: 700, marginBottom: '16px', lineHeight: 1.15 }}>
           We'd love to hear<br />what you think.
         </h1>
         <p style={{ fontSize: 'clamp(14px, 2vw, 15px)', color: C.muted, fontFamily: F.sans, lineHeight: 1.8, marginBottom: '28px' }}>
-          This isn't a test — there are no right answers here. We just want to understand your world a little better. Take your time, be honest, and say whatever feels true.
+          This isn't a test — there are no right answers here. Take your time, be honest, and say whatever feels true.
           <br /><br />
           <strong style={{ color: C.text }}>About 10–12 minutes.</strong> {Object.values(QUESTIONS).flat().length} questions across 7 themes.
         </p>
 
-        {/* Panel reward notice — only shown to panel respondents */}
         {isRespondent && (
           <div style={{ padding: '12px 16px', background: C.goldDim, border: `1px solid ${C.gold}30`, borderRadius: '10px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
             <span style={{ fontSize: '22px' }}>💰</span>
             <div>
               <p style={{ fontSize: '13px', fontWeight: 600, color: C.gold, fontFamily: F.sans, margin: '0 0 2px' }}>Earn ₦1,000 for this survey</p>
-              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, margin: 0 }}>Take your time and answer honestly to qualify for your reward.</p>
+              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, margin: 0 }}>Take your time and answer honestly to qualify.</p>
             </div>
           </div>
         )}
@@ -267,65 +303,97 @@ export default function SurveyFlow({ campaign, assets = [] }) {
 
   // ── SURVEY ─────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: '660px', margin: '0 auto', padding: 'clamp(20px, 4vw, 36px) clamp(16px, 4vw, 20px) 80px', background: C.bg, minHeight: '100vh' }}>
-      <style>{`.fade-up{animation:fadeUp 0.3s ease forwards}@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes waveBar{0%,100%{height:6px}50%{height:22px}}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div style={{ background: C.bg, minHeight: '100vh' }}>
+      <style>{`
+        .fade-up{animation:fadeUp 0.3s ease forwards}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
 
-      {/* Progress */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontFamily: F.sans, marginBottom: '7px' }}>
-          <span style={{ color: section.color, fontWeight: 600 }}>{section.icon} {section.name}</span>
-          <span style={{ color: C.muted }}>Q{questionIdx + 1}/{sectionQs.length} · Section {sectionNum}/7</span>
+        /* Prevent iOS/Android zoom on input focus */
+        input, textarea, select {
+          font-size: 16px !important;
+        }
+
+        .survey-sticky {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          background: ${C.bg};
+          padding: 12px clamp(14px,4vw,20px) 10px;
+          border-bottom: 1px solid ${C.border}22;
+        }
+        .survey-body {
+          max-width: 660px;
+          margin: 0 auto;
+          padding: 16px clamp(14px,4vw,20px) 40px;
+        }
+        @media (max-width: 640px) {
+          .survey-body { padding: 14px 14px 40px; }
+        }
+      `}</style>
+
+      {/* Sticky progress header */}
+      <div className="survey-sticky">
+        <div style={{ maxWidth: '660px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontFamily: F.sans, marginBottom: '7px', alignItems: 'center' }}>
+            <span style={{ color: section.color, fontWeight: 600, fontSize: 'clamp(11px,3vw,12px)' }}>{section.icon} {section.name}</span>
+            <span style={{ color: C.muted, fontSize: 'clamp(10px,2.5vw,12px)' }}>Q{questionIdx + 1}/{sectionQs.length} · {sectionNum}/7</span>
+          </div>
+          <ProgressBar value={progressPct} color={`linear-gradient(90deg, ${C.blue}, ${C.gold})`} height={3} />
         </div>
-        <ProgressBar value={progressPct} color={`linear-gradient(90deg, ${C.blue}, ${C.gold})`} height={3} />
       </div>
 
-      {/* Panel reward reminder strip */}
-      {isRespondent && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: C.goldDim, border: `1px solid ${C.gold}20`, borderRadius: '8px', marginBottom: '16px' }}>
-          <span style={{ fontSize: '14px' }}>💰</span>
-          <p style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 500, margin: 0 }}>
-            Earning ₦1,000 · Answer carefully and honestly for full credit
-          </p>
-        </div>
-      )}
+      {/* Survey body */}
+      <div className="survey-body">
 
-      {q && (
-        <div className="fade-up" key={q.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '20px', padding: 'clamp(20px, 4vw, 32px)', marginBottom: '16px' }}>
-          {q.type === 'asset_carousel' && !assetsDone ? (
-            <>
-              <p style={{ fontSize: '10px', letterSpacing: '3px', color: section.color, fontFamily: F.sans, fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Campaign Assets</p>
-              <h2 style={{ fontSize: 'clamp(16px, 2vw, 19px)', fontFamily: F.sans, fontWeight: 600, marginBottom: '6px', lineHeight: 1.45 }}>{q.text}</h2>
-              <p style={{ fontSize: '13px', color: C.muted, fontFamily: F.sans, lineHeight: 1.6, marginBottom: '20px' }}>{q.assetInstruction}</p>
-              <AssetCarousel assets={assets} onComplete={() => { setAssetsDone(true); advance() }} />
-            </>
-          ) : (
-            <>
-              <p style={{ fontSize: '10px', letterSpacing: '3px', color: section.color, fontFamily: F.sans, fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>{section.icon} {section.name}</p>
-              {q.isNPS && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: C.gold + '15', border: `1px solid ${C.gold}30`, marginBottom: '10px' }}>
-                  <span style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 600 }}>Net Promoter Score</span>
+        {/* Panel reward strip */}
+        {isRespondent && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: C.goldDim, border: `1px solid ${C.gold}20`, borderRadius: '8px', marginBottom: '14px' }}>
+            <span style={{ fontSize: '14px' }}>💰</span>
+            <p style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 500, margin: 0 }}>
+              Earning ₦1,000 · Answer carefully and honestly
+            </p>
+          </div>
+        )}
+
+        {q && (
+          <div className="fade-up" key={q.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '16px', padding: 'clamp(16px, 4vw, 28px)', marginBottom: '14px' }}>
+            {q.type === 'asset_carousel' && !assetsDone ? (
+              <>
+                <p style={{ fontSize: '10px', letterSpacing: '3px', color: section.color, fontFamily: F.sans, fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Campaign Assets</p>
+                <h2 style={{ fontSize: 'clamp(15px, 2vw, 18px)', fontFamily: F.sans, fontWeight: 600, marginBottom: '6px', lineHeight: 1.45 }}>{q.text}</h2>
+                <p style={{ fontSize: '13px', color: C.muted, fontFamily: F.sans, lineHeight: 1.6, marginBottom: '20px' }}>{q.assetInstruction}</p>
+                <AssetCarousel assets={assets} onComplete={() => { setAssetsDone(true); advance() }} />
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: '10px', letterSpacing: '3px', color: section.color, fontFamily: F.sans, fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>{section.icon} {section.name}</p>
+                {q.isNPS && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: C.gold + '15', border: `1px solid ${C.gold}30`, marginBottom: '10px' }}>
+                    <span style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 600 }}>Net Promoter Score</span>
+                  </div>
+                )}
+                <h2 style={{ fontSize: 'clamp(15px, 2vw, 18px)', fontFamily: F.sans, fontWeight: 600, marginBottom: '18px', lineHeight: 1.5 }}>{q.text}</h2>
+                <QuestionRenderer q={q} answers={answers} setAnswers={setAnswers} />
+                <div style={{ display: 'flex', gap: '10px', marginTop: '24px', flexWrap: 'wrap' }}>
+                  {(sectionNum > 1 || questionIdx > 0) && <GhostButton onClick={goBack}>← Back</GhostButton>}
+                  <GoldButton onClick={advance} disabled={!hasAnswer() || submitting} style={{ flex: 1 }}>
+                    {submitting
+                      ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Spinner size={14} color={C.bg} /> Submitting...</span>
+                      : isLast ? 'Submit →' : 'Continue →'}
+                  </GoldButton>
                 </div>
-              )}
-              <h2 style={{ fontSize: 'clamp(15px, 2vw, 18px)', fontFamily: F.sans, fontWeight: 600, marginBottom: '18px', lineHeight: 1.5 }}>{q.text}</h2>
-              <QuestionRenderer q={q} answers={answers} setAnswers={setAnswers} />
-              <div style={{ display: 'flex', gap: '10px', marginTop: '24px', flexWrap: 'wrap' }}>
-                {(sectionNum > 1 || questionIdx > 0) && <GhostButton onClick={goBack}>← Back</GhostButton>}
-                <GoldButton onClick={advance} disabled={!hasAnswer() || submitting} style={{ flex: 1 }}>
-                  {submitting
-                    ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Spinner size={14} color={C.bg} /> Submitting...</span>
-                    : isLast ? 'Submit →' : 'Continue →'}
-                </GoldButton>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+              </>
+            )}
+          </div>
+        )}
 
-      {/* Section progress dots */}
-      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-        {SECTION_META.map((s, i) => (
-          <div key={s.id} style={{ height: '3px', flex: 1, maxWidth: '36px', borderRadius: '2px', background: i + 1 < sectionNum ? s.color : i + 1 === sectionNum ? s.color + '55' : C.border, transition: 'all 0.3s' }} />
-        ))}
+        {/* Section dots */}
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', padding: '8px 0' }}>
+          {SECTION_META.map((s, i) => (
+            <div key={s.id} style={{ height: '3px', flex: 1, maxWidth: '36px', borderRadius: '2px', background: i + 1 < sectionNum ? s.color : i + 1 === sectionNum ? s.color + '55' : C.border, transition: 'all 0.3s' }} />
+          ))}
+        </div>
       </div>
     </div>
   )
