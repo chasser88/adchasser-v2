@@ -19,12 +19,12 @@ import SurveyPage      from './pages/SurveyPage.jsx'
 import NotFoundPage    from './pages/NotFoundPage.jsx'
 
 // ── Respondent platform pages ─────────────────────────────────
-import RespondLandingPage    from './pages/panel/RespondLandingPage.jsx'
-import RespondAuthPage       from './pages/panel/RespondAuthPage.jsx'
-import RespondOnboardingPage from './pages/panel/RespondOnboardingPage.jsx'
-import RespondDashboardPage  from './pages/panel/RespondDashboardPage.jsx'
-import RespondWalletPage     from './pages/panel/RespondWalletPage.jsx'
-import RespondProfilePage    from './pages/panel/RespondProfilePage.jsx'
+import RespondLandingPage    from './pages/respond/RespondLandingPage.jsx'
+import RespondAuthPage       from './pages/respond/RespondAuthPage.jsx'
+import RespondOnboardingPage from './pages/respond/RespondOnboardingPage.jsx'
+import RespondDashboardPage  from './pages/respond/RespondDashboardPage.jsx'
+import RespondWalletPage     from './pages/respond/RespondWalletPage.jsx'
+import RespondProfilePage    from './pages/respond/RespondProfilePage.jsx'
 
 export const ADMIN_EMAIL = 'charlzillion@gmail.com'
 
