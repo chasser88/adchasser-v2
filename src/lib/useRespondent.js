@@ -102,14 +102,29 @@ export async function getAvailableSurveys(respondent) {
 
   if (!campaigns?.length) return []
 
-  // Get already completed or pending surveys for this respondent
+  // Get all completions for this respondent
   const { data: completed } = await supabase
     .from('respondent_completions')
-    .select('campaign_id, quality_status')
+    .select('campaign_id, quality_status, retry_allowed_until')
     .eq('respondent_id', respondent.id)
-    .in('quality_status', ['pending', 'approved'])
 
-  const completedIds = new Set(completed?.map(c => c.campaign_id) ?? [])
+  // Build set of campaign IDs to exclude
+  // Exclude: pending, approved, rejected — keep retry_allowed ONLY if window hasn't expired
+  const completedIds = new Set(
+    (completed ?? [])
+      .filter(c => {
+        if (c.quality_status === 'pending')  return true  // already submitted, awaiting review
+        if (c.quality_status === 'approved') return true  // done and paid
+        if (c.quality_status === 'rejected') return true  // failed twice
+        if (c.quality_status === 'retry_allowed') {
+          // Only exclude if retry window has expired
+          if (!c.retry_allowed_until) return false // still retryable
+          return new Date(c.retry_allowed_until) < new Date() // expired
+        }
+        return false
+      })
+      .map(c => c.campaign_id)
+  )
 
   // Filter: not already completed + demographic match
   return campaigns.filter(c => {

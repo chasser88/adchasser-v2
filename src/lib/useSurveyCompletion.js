@@ -5,6 +5,9 @@
 import { supabase } from './supabase.js'
 import { computeQualityScore } from './useRespondent.js'
 
+// Re-export so SurveyFlow can import from one place
+export { computeQualityScore }
+
 /**
  * Call this when a respondent finishes a survey
  * @param {object} params
@@ -94,34 +97,35 @@ export async function recordSurveyCompletion({
     completion = data
   }
 
-  // 7. If passed — add to pending balance in wallet
+  // 7. If passed — credit ₦1,000 to pending balance
   if (passed) {
-    await supabase
-      .from('respondent_earnings')
-      .update({
-        pending_balance: supabase.rpc ? undefined : undefined, // handled by DB trigger
-        updated_at: new Date().toISOString(),
+    try {
+      // Try RPC first
+      const { error: rpcErr } = await supabase.rpc('increment_pending_balance', {
+        p_respondent_id: respondent.id,
+        p_amount: 1000,
       })
-      .eq('respondent_id', respondent.id)
 
-    // Directly update pending balance (trigger handles credited status)
-    await supabase.rpc('increment_pending_balance', {
-      p_respondent_id: respondent.id,
-      p_amount: 1000,
-    }).catch(() => {
-      // Fallback if RPC not set up — direct update
-      supabase
-        .from('respondent_earnings')
-        .select('pending_balance')
-        .eq('respondent_id', respondent.id)
-        .single()
-        .then(({ data: earn }) => {
-          supabase
-            .from('respondent_earnings')
-            .update({ pending_balance: (earn?.pending_balance ?? 0) + 1000, updated_at: new Date().toISOString() })
-            .eq('respondent_id', respondent.id)
-        })
-    })
+      if (rpcErr) {
+        // RPC failed — do direct update as fallback
+        const { data: earn } = await supabase
+          .from('respondent_earnings')
+          .select('pending_balance')
+          .eq('respondent_id', respondent.id)
+          .single()
+
+        await supabase
+          .from('respondent_earnings')
+          .update({
+            pending_balance: (earn?.pending_balance ?? 0) + 1000,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('respondent_id', respondent.id)
+      }
+    } catch (creditErr) {
+      console.error('Credit error:', creditErr)
+      // Don't block — completion record was saved, admin can reconcile
+    }
   }
 
   return { completion, qualityResult, alreadyCompleted: false }
