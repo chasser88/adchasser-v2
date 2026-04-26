@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, F } from '../../tokens.js'
-import RespondNav from '../../components/respond/RespondNav.jsx'
+import RespondNav from '../../components/panel/RespondNav.jsx'
 import { useRespondent, getAvailableSurveys, getCompletionHistory } from '../../lib/useRespondent.js'
 
 const WITHDRAWAL_TARGET = 10000
@@ -16,7 +16,7 @@ export default function RespondDashboardPage({ user }) {
 
   useEffect(() => {
     if (!respondent) return
-    if (!respondent.onboarding_done) { navigate('/respond/onboarding'); return }
+    if (!respondent.onboarding_done) { navigate('/panel/onboarding'); return }
 
     getAvailableSurveys(respondent).then(s => { setSurveys(s); setSurveysLoading(false) })
     getCompletionHistory(respondent.id).then(setHistory)
@@ -34,7 +34,7 @@ export default function RespondDashboardPage({ user }) {
     </div>
   )
 
-  if (!respondent) { navigate('/respond/auth'); return null }
+  if (!respondent) { navigate('/panel/auth'); return null }
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: F.sans }}>
@@ -80,7 +80,7 @@ export default function RespondDashboardPage({ user }) {
             <div style={{ height: '100%', width: `${progress}%`, background: progress >= 100 ? `linear-gradient(90deg,${C.green},${C.green}CC)` : `linear-gradient(90deg,${C.gold},${C.goldLight})`, borderRadius: '4px', transition: 'width 0.8s ease' }} />
           </div>
           {available >= WITHDRAWAL_TARGET
-            ? <p style={{ fontSize: '12px', color: C.green, fontWeight: 600 }}>🎉 You've reached the withdrawal threshold! <button onClick={() => navigate('/respond/wallet')} style={{ color: C.green, background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline', fontFamily: F.sans }}>Withdraw now →</button></p>
+            ? <p style={{ fontSize: '12px', color: C.green, fontWeight: 600 }}>🎉 You've reached the withdrawal threshold! <button onClick={() => navigate('/panel/wallet')} style={{ color: C.green, background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline', fontFamily: F.sans }}>Withdraw now →</button></p>
             : <p style={{ fontSize: '12px', color: C.muted }}>Complete {Math.ceil(remaining / 1000)} more survey{Math.ceil(remaining / 1000) !== 1 ? 's' : ''} to unlock withdrawal</p>
           }
         </div>

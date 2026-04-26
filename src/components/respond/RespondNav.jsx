@@ -20,14 +20,14 @@ export default function RespondNav({ respondent, earnings, user }) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    navigate('/respond')
+    navigate('/panel')
   }
 
   const navItems = [
-    { label: 'Home',    path: '/respond/dashboard', icon: '🏠' },
-    { label: 'Surveys', path: '/respond/dashboard', icon: '📋' },
-    { label: 'Wallet',  path: '/respond/wallet',    icon: '💳' },
-    { label: 'Profile', path: '/respond/profile',   icon: '👤' },
+    { label: 'Home',    path: '/panel/dashboard', icon: '🏠' },
+    { label: 'Surveys', path: '/panel/dashboard', icon: '📋' },
+    { label: 'Wallet',  path: '/panel/wallet',    icon: '💳' },
+    { label: 'Profile', path: '/panel/profile',   icon: '👤' },
   ]
 
   const available = earnings?.available_balance ?? 0
@@ -38,7 +38,7 @@ export default function RespondNav({ respondent, earnings, user }) {
     <nav style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100 }}>
 
       {/* Logo — always goes to respondent dashboard */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => navigate('/respond/dashboard')}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => navigate('/panel/dashboard')}>
         <img src={logo} alt="AdChasser" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
         <div>
           <p style={{ fontSize: '13px', fontWeight: 700, fontFamily: F.display, color: C.text, margin: 0, lineHeight: 1 }}>AdChasser</p>
@@ -46,7 +46,7 @@ export default function RespondNav({ respondent, earnings, user }) {
         </div>
       </div>
 
-      {/* Nav items — all within /respond/* only */}
+      {/* Nav items — all within /panel/* only */}
       <div style={{ display: 'flex', gap: '4px' }}>
         {navItems.map(item => {
           const active = path === item.path
@@ -75,7 +75,7 @@ export default function RespondNav({ respondent, earnings, user }) {
 
         {/* Wallet progress pill */}
         <div
-          onClick={() => navigate('/respond/wallet')}
+          onClick={() => navigate('/panel/wallet')}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 12px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '20px', cursor: 'pointer' }}
         >
           <div style={{ width: '60px', height: '5px', background: C.border, borderRadius: '3px', overflow: 'hidden' }}>
@@ -112,12 +112,12 @@ export default function RespondNav({ respondent, earnings, user }) {
                 </p>
               </div>
 
-              {/* Menu links — all within /respond/* */}
+              {/* Menu links — all within /panel/* */}
               {[
-                { label: '🏠 Dashboard',  path: '/respond/dashboard' },
-                { label: '📋 Surveys',    path: '/respond/dashboard' },
-                { label: '💳 Wallet',     path: '/respond/wallet'    },
-                { label: '👤 My Profile', path: '/respond/profile'   },
+                { label: '🏠 Dashboard',  path: '/panel/dashboard' },
+                { label: '📋 Surveys',    path: '/panel/dashboard' },
+                { label: '💳 Wallet',     path: '/panel/wallet'    },
+                { label: '👤 My Profile', path: '/panel/profile'   },
               ].map(item => (
                 <button
                   key={item.label}

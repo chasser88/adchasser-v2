@@ -167,11 +167,11 @@ export default function SurveyQualityResult({ score, flags, passed, onRetry, cam
               ↺ Retake Survey Carefully
             </button>
           )}
-          <button onClick={() => navigate('/respond/dashboard')} style={{ width: '100%', padding: '13px', background: passed ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : C.surface, border: `1px solid ${passed ? 'transparent' : C.border}`, borderRadius: '10px', color: passed ? C.bg : C.text, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+          <button onClick={() => navigate('/panel/dashboard')} style={{ width: '100%', padding: '13px', background: passed ? `linear-gradient(135deg,${C.gold},${C.goldLight})` : C.surface, border: `1px solid ${passed ? 'transparent' : C.border}`, borderRadius: '10px', color: passed ? C.bg : C.text, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
             {passed ? '→ Back to Dashboard' : 'Back to Dashboard'}
           </button>
           {passed && (
-            <button onClick={() => navigate('/respond/wallet')} style={{ width: '100%', padding: '13px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.muted, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer' }}>
+            <button onClick={() => navigate('/panel/wallet')} style={{ width: '100%', padding: '13px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.muted, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer' }}>
               💳 View My Wallet
             </button>
           )}

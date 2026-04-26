@@ -286,7 +286,7 @@ export default function RespondOnboardingPage() {
                 <span style={{ fontSize: '20px' }}>💬</span>
                 <span style={{ fontSize: '13px', color: '#25D166', fontWeight: 600, fontFamily: F.sans }}>Join our WhatsApp Community for Respondents</span>
               </a>
-              <button onClick={() => navigate('/respond/dashboard')} style={{ width: '100%', padding: '12px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+              <button onClick={() => navigate('/panel/dashboard')} style={{ width: '100%', padding: '12px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
                 View Available Surveys →
               </button>
             </div>

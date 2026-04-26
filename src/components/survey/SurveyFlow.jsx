@@ -3,7 +3,7 @@ import { C, F, SECTION_META } from '../../tokens.js'
 import { GoldButton, GhostButton, Spinner, ProgressBar } from '../shared/ui.jsx'
 import QuestionRenderer from './QuestionRenderer.jsx'
 import AssetCarousel from './AssetCarousel.jsx'
-import SurveyQualityResult from '../respond/SurveyQualityResult.jsx'
+import SurveyQualityResult from '../panel/SurveyQualityResult.jsx'
 import { getQuestionnaire, interpolateQuestion } from '../../questions.js'
 import { createResponseRecord, submitSurveyResponse } from '../../lib/responses.js'
 import { getRespondentForSurvey } from '../../lib/useSurveyCompletion.js'
@@ -256,7 +256,7 @@ export default function SurveyFlow({ campaign, assets = [] }) {
             {`Your answers will help shape how ${brandName} communicates with people like you.`}
           </p>
           {isRespondent && (
-            <button onClick={() => window.location.href = '/respond/dashboard'} style={{ width: '100%', padding: '13px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+            <button onClick={() => window.location.href = '/panel/dashboard'} style={{ width: '100%', padding: '13px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: '14px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
               → Back to Dashboard
             </button>
           )}

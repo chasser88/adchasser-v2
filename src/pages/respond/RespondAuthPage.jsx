@@ -35,7 +35,7 @@ export default function RespondAuthPage({ onAuth }) {
           password,
           options: {
             data: { full_name: name.trim() },
-            emailRedirectTo: `${window.location.origin}/respond/auth/callback`,
+            emailRedirectTo: `${window.location.origin}/panel/auth/callback`,
           }
         })
         if (signUpErr) throw signUpErr
@@ -64,11 +64,11 @@ export default function RespondAuthPage({ onAuth }) {
             email:     data.user.email,
             full_name: data.user.user_metadata?.full_name ?? '',
           })
-          navigate('/respond/onboarding')
+          navigate('/panel/onboarding')
         } else if (!respondent.onboarding_done) {
-          navigate('/respond/onboarding')
+          navigate('/panel/onboarding')
         } else {
-          navigate('/respond/dashboard')
+          navigate('/panel/dashboard')
         }
       }
     } catch (e) {
@@ -81,7 +81,7 @@ export default function RespondAuthPage({ onAuth }) {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/respond/auth/callback` }
+      options: { redirectTo: `${window.location.origin}/panel/auth/callback` }
     })
     if (error) { setError(error.message); setLoading(false) }
   }

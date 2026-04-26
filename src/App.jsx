@@ -19,12 +19,12 @@ import SurveyPage      from './pages/SurveyPage.jsx'
 import NotFoundPage    from './pages/NotFoundPage.jsx'
 
 // ── Respondent platform pages ─────────────────────────────────
-import RespondLandingPage    from './pages/respond/RespondLandingPage.jsx'
-import RespondAuthPage       from './pages/respond/RespondAuthPage.jsx'
-import RespondOnboardingPage from './pages/respond/RespondOnboardingPage.jsx'
-import RespondDashboardPage  from './pages/respond/RespondDashboardPage.jsx'
-import RespondWalletPage     from './pages/respond/RespondWalletPage.jsx'
-import RespondProfilePage    from './pages/respond/RespondProfilePage.jsx'
+import RespondLandingPage    from './pages/panel/RespondLandingPage.jsx'
+import RespondAuthPage       from './pages/panel/RespondAuthPage.jsx'
+import RespondOnboardingPage from './pages/panel/RespondOnboardingPage.jsx'
+import RespondDashboardPage  from './pages/panel/RespondDashboardPage.jsx'
+import RespondWalletPage     from './pages/panel/RespondWalletPage.jsx'
+import RespondProfilePage    from './pages/panel/RespondProfilePage.jsx'
 
 export const ADMIN_EMAIL = 'charlzillion@gmail.com'
 
@@ -43,10 +43,10 @@ function PrivateRoute({ user, children }) {
   return children
 }
 
-// Guard — redirects to /respond/auth if not logged in (respondents)
+// Guard — redirects to /panel/auth if not logged in (respondents)
 function RespondPrivateRoute({ user, children }) {
   if (user === undefined) return <Loader />
-  if (!user) return <Navigate to="/respond/auth" replace />
+  if (!user) return <Navigate to="/panel/auth" replace />
   return children
 }
 
@@ -86,13 +86,13 @@ export default function App() {
       <Route path="/app/cms"       element={<PrivateRoute user={user}><AppPage user={user} setUser={setUser} tab="cms" /></PrivateRoute>} />
 
       {/* ── Respondent platform ── */}
-      <Route path="/respond"            element={<RespondLandingPage user={user} />} />
-      <Route path="/respond/auth"       element={user ? <Navigate to="/respond/dashboard" replace /> : <RespondAuthPage onAuth={setUser} />} />
-      <Route path="/respond/auth/callback" element={<AuthCallback redirectTo="/respond/dashboard" />} />
-      <Route path="/respond/onboarding" element={<RespondPrivateRoute user={user}><RespondOnboardingPage user={user} /></RespondPrivateRoute>} />
-      <Route path="/respond/dashboard"  element={<RespondPrivateRoute user={user}><RespondDashboardPage  user={user} /></RespondPrivateRoute>} />
-      <Route path="/respond/wallet"     element={<RespondPrivateRoute user={user}><RespondWalletPage     user={user} /></RespondPrivateRoute>} />
-      <Route path="/respond/profile"    element={<RespondPrivateRoute user={user}><RespondProfilePage    user={user} /></RespondPrivateRoute>} />
+      <Route path="/panel"            element={<RespondLandingPage user={user} />} />
+      <Route path="/panel/auth"       element={user ? <Navigate to="/panel/dashboard" replace /> : <RespondAuthPage onAuth={setUser} />} />
+      <Route path="/panel/auth/callback" element={<AuthCallback redirectTo="/panel/dashboard" />} />
+      <Route path="/panel/onboarding" element={<RespondPrivateRoute user={user}><RespondOnboardingPage user={user} /></RespondPrivateRoute>} />
+      <Route path="/panel/dashboard"  element={<RespondPrivateRoute user={user}><RespondDashboardPage  user={user} /></RespondPrivateRoute>} />
+      <Route path="/panel/wallet"     element={<RespondPrivateRoute user={user}><RespondWalletPage     user={user} /></RespondPrivateRoute>} />
+      <Route path="/panel/profile"    element={<RespondPrivateRoute user={user}><RespondProfilePage    user={user} /></RespondPrivateRoute>} />
 
       {/* ── 404 ── */}
       <Route path="*" element={<NotFoundPage />} />

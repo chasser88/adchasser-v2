@@ -20,8 +20,8 @@ export default function AuthCallback({ redirectTo }) {
           // If explicit redirectTo prop passed — use it
           if (redirectTo) { navigate(redirectTo, { replace: true }); return }
 
-          // If coming from /respond/auth/callback — check respondent profile
-          const isRespondCallback = location.pathname.includes('/respond/')
+          // If coming from /panel/auth/callback — check respondent profile
+          const isRespondCallback = location.pathname.includes('/panel/')
           if (isRespondCallback) {
             const { data: respondent } = await supabase
               .from('respondents')
@@ -36,11 +36,11 @@ export default function AuthCallback({ redirectTo }) {
                 email:     session.user.email,
                 full_name: session.user.user_metadata?.full_name ?? '',
               })
-              navigate('/respond/onboarding', { replace: true })
+              navigate('/panel/onboarding', { replace: true })
             } else if (!respondent.onboarding_done) {
-              navigate('/respond/onboarding', { replace: true })
+              navigate('/panel/onboarding', { replace: true })
             } else {
-              navigate('/respond/dashboard', { replace: true })
+              navigate('/panel/dashboard', { replace: true })
             }
             return
           }
@@ -85,7 +85,7 @@ export default function AuthCallback({ redirectTo }) {
         <button onClick={() => navigate('/auth')} style={{ padding: '10px 24px', background: 'transparent', border: '1px solid #C9A84C', borderRadius: '8px', color: '#C9A84C', fontSize: '14px', fontFamily: 'system-ui', cursor: 'pointer' }}>
           Brand Manager Sign In
         </button>
-        <button onClick={() => navigate('/respond/auth')} style={{ padding: '10px 24px', background: '#C9A84C', border: 'none', borderRadius: '8px', color: '#07090F', fontSize: '14px', fontFamily: 'system-ui', fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={() => navigate('/panel/auth')} style={{ padding: '10px 24px', background: '#C9A84C', border: 'none', borderRadius: '8px', color: '#07090F', fontSize: '14px', fontFamily: 'system-ui', fontWeight: 600, cursor: 'pointer' }}>
           Panel Sign In
         </button>
       </div>

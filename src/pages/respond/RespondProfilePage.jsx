@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, F } from '../../tokens.js'
-import RespondNav from '../../components/respond/RespondNav.jsx'
+import RespondNav from '../../components/panel/RespondNav.jsx'
 import { useRespondent, updateRespondent } from '../../lib/useRespondent.js'
 import { supabase } from '../../lib/supabase.js'
 
@@ -45,7 +45,7 @@ export default function RespondProfilePage({ user }) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    navigate('/respond')
+    navigate('/panel')
   }
 
   const inp = { width: '100%', padding: '11px 13px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: '14px', fontFamily: F.sans, outline: 'none', boxSizing: 'border-box' }
@@ -59,7 +59,7 @@ export default function RespondProfilePage({ user }) {
   )
 
   if (loading || !form) return <div style={{ minHeight: '100vh', background: C.bg }} />
-  if (!respondent) { navigate('/respond/auth'); return null }
+  if (!respondent) { navigate('/panel/auth'); return null }
 
   const profileScore = respondent.profile_score ?? 0
   const scoreColor = profileScore >= 80 ? C.green : profileScore >= 50 ? C.gold : '#ef4444'

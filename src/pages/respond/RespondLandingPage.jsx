@@ -27,7 +27,7 @@ export default function RespondLandingPage({ user }) {
 
       {/* Respondent-specific top nav — no brand manager links */}
       <nav style={{ background: C.card, borderBottom: `1px solid ${C.border}`, padding: '0 5%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '58px', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => navigate('/respond')}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => navigate('/panel')}>
           <img src={logo} alt="AdChasser" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           <div>
             <p style={{ fontSize: '13px', fontWeight: 700, fontFamily: F.display, color: C.text, margin: 0, lineHeight: 1 }}>AdChasser</p>
@@ -35,10 +35,10 @@ export default function RespondLandingPage({ user }) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button onClick={() => navigate('/respond/auth')} style={{ padding: '8px 18px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '8px', color: C.text, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer' }}>
+          <button onClick={() => navigate('/panel/auth')} style={{ padding: '8px 18px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '8px', color: C.text, fontSize: '13px', fontFamily: F.sans, cursor: 'pointer' }}>
             Sign In
           </button>
-          <button onClick={() => navigate('/respond/auth')} style={{ padding: '8px 18px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '8px', color: C.bg, fontSize: '13px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+          <button onClick={() => navigate('/panel/auth')} style={{ padding: '8px 18px', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '8px', color: C.bg, fontSize: '13px', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
             Join Free →
           </button>
         </div>
@@ -63,10 +63,10 @@ export default function RespondLandingPage({ user }) {
         </p>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
-          <button onClick={() => navigate('/respond/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
+          <button onClick={() => navigate('/panel/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer' }}>
             Join the Panel — It's Free →
           </button>
-          <button onClick={() => navigate('/respond/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: 'clamp(13px,2vw,15px)', fontFamily: F.sans, cursor: 'pointer' }}>
+          <button onClick={() => navigate('/panel/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, fontSize: 'clamp(13px,2vw,15px)', fontFamily: F.sans, cursor: 'pointer' }}>
             Sign In →
           </button>
         </div>
@@ -74,7 +74,7 @@ export default function RespondLandingPage({ user }) {
         {/* Returning member link */}
         <p style={{ fontSize: '13px', color: C.muted, fontFamily: F.sans, marginBottom: '32px' }}>
           Already a member?{' '}
-          <button onClick={() => navigate('/respond/auth')} style={{ color: C.gold, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontFamily: F.sans, fontWeight: 600, textDecoration: 'underline' }}>
+          <button onClick={() => navigate('/panel/auth')} style={{ color: C.gold, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontFamily: F.sans, fontWeight: 600, textDecoration: 'underline' }}>
             Sign in to your account →
           </button>
         </p>
@@ -148,7 +148,7 @@ export default function RespondLandingPage({ user }) {
         <p style={{ fontSize: 'clamp(14px,2vw,16px)', color: C.muted, marginBottom: '32px', position: 'relative' }}>
           Join thousands of Nigerians sharing their brand opinions and getting paid.
         </p>
-        <button onClick={() => navigate('/respond/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer', position: 'relative' }}>
+        <button onClick={() => navigate('/panel/auth')} style={{ padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,40px)', background: `linear-gradient(135deg,${C.gold},${C.goldLight})`, border: 'none', borderRadius: '10px', color: C.bg, fontSize: 'clamp(13px,2vw,15px)', fontWeight: 700, fontFamily: F.sans, cursor: 'pointer', position: 'relative' }}>
           Create Free Account →
         </button>
       </section>
