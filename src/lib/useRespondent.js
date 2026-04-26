@@ -11,15 +11,33 @@ export function useRespondent(user) {
     if (!user) { setRespondent(null); setLoading(false); return }
     setLoading(true)
 
-    const { data } = await supabase
+    // Primary lookup by user_id
+    let { data } = await supabase
       .from('respondents')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle()
 
+    // If not found by user_id, try by email and fix user_id
+    if (!data && user.email) {
+      const { data: byEmail } = await supabase
+        .from('respondents')
+        .select('*')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      if (byEmail) {
+        // Fix stale user_id
+        await supabase
+          .from('respondents')
+          .update({ user_id: user.id })
+          .eq('id', byEmail.id)
+        data = { ...byEmail, user_id: user.id }
+      }
+    }
+
     if (data) {
       setRespondent(data)
-      // Fetch wallet
       const { data: earn } = await supabase
         .from('respondent_earnings')
         .select('*')

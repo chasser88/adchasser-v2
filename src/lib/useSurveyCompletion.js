@@ -133,17 +133,45 @@ export async function recordSurveyCompletion({
 
 /**
  * Check if current user is a panel respondent
+ * Verifies by user_id first, then email as fallback
  * Returns respondent object or null
  */
 export async function getRespondentForSurvey() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data } = await supabase
+  // Primary lookup by user_id
+  let { data } = await supabase
     .from('respondents')
-    .select('id, full_name, profile_score, onboarding_done')
+    .select('id, full_name, profile_score, onboarding_done, user_id, email')
     .eq('user_id', user.id)
     .maybeSingle()
+
+  // If found but email doesn't match — fix the user_id (stale data)
+  if (data && data.email && data.email !== user.email) {
+    // Wrong user_id attached to this respondent — don't use it
+    data = null
+  }
+
+  // Fallback: lookup by email and fix user_id if needed
+  if (!data) {
+    const { data: byEmail } = await supabase
+      .from('respondents')
+      .select('id, full_name, profile_score, onboarding_done, user_id, email')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (byEmail) {
+      // Fix user_id if it's wrong or missing
+      if (byEmail.user_id !== user.id) {
+        await supabase
+          .from('respondents')
+          .update({ user_id: user.id })
+          .eq('id', byEmail.id)
+      }
+      data = byEmail
+    }
+  }
 
   return data
 }
