@@ -17,6 +17,8 @@ import AppPage         from './pages/AppPage.jsx'
 import InsightsPage    from './pages/InsightsPage.jsx'
 import SurveyPage      from './pages/SurveyPage.jsx'
 import NotFoundPage    from './pages/NotFoundPage.jsx'
+import PrivacyPage     from './pages/PrivacyPage.jsx'
+import TermsPage       from './pages/TermsPage.jsx'
 
 // ── Respondent platform pages ─────────────────────────────────
 import RespondLandingPage    from './pages/respond/RespondLandingPage.jsx'
@@ -69,6 +71,8 @@ export default function App() {
       <Route path="/how-it-works"  element={<HowItWorksPage user={user} />} />
       <Route path="/pricing"       element={<PricingPage    user={user} />} />
       <Route path="/about"         element={<AboutPage      user={user} />} />
+      <Route path="/privacy"       element={<PrivacyPage />} />
+      <Route path="/terms"         element={<TermsPage />} />
 
       {/* ── Brand manager auth ── */}
       <Route path="/auth"          element={user ? <Navigate to="/app" replace /> : <AuthPage onAuth={setUser} />} />
