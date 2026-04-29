@@ -8,7 +8,7 @@
  *   - Error mapping (Paystack 4xx -> typed PaystackError)
  *   - Network failure handling -> PaystackUnavailableError
  *
- * NEVER call fetch() against api.paystack.co directly — always go through
+ * NEVER call fetch() against api.paystack.co directly - always go through
  * this client so errors are uniform and credentials never leak.
  */
 
@@ -23,7 +23,7 @@ import type { Logger } from './logger.ts';
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const REQUEST_TIMEOUT_MS = 15_000;
 
-// ── Paystack API response shapes ──────────────────────────────────
+// aPaystack API response shapes
 
 export interface PaystackEnvelope<T> {
   status: boolean;
@@ -45,8 +45,8 @@ export interface CreateTransferRecipientResponse {
   id: number;
   integration: number;
   name: string;
-  recipient_code: string; // RCP_xxxxxxxxxx
-  type: string; // 'nuban'
+  recipient_code: string;
+  type: string;
   updatedAt: string;
   is_deleted: boolean;
   details: {
@@ -66,7 +66,70 @@ export interface CreateTransferRecipientRequest {
   currency: 'NGN';
 }
 
-// ── Client ────────────────────────────────────────────────────────
+export interface InitializeTransactionRequest {
+  email: string;
+  amount: number; // in kobo
+  reference?: string;
+  callback_url?: string;
+  channels: Array<'card' | 'bank' | 'bank_transfer' | 'ussd' | 'qr' | 'mobile_money'>;
+  currency: 'NGN';
+  metadata?: Record<string, unknown>;
+}
+
+export interface InitializeTransactionResponse {
+  authorization_url: string;
+  access_code: string;
+  reference: string;
+}
+
+export interface CreateCustomerRequest {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateCustomerResponse {
+  id: number;
+  customer_code: string; // CUS_xxxxxx
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  metadata: Record<string, unknown> | null;
+  domain: string;
+}
+
+export interface CreateDedicatedAccountRequest {
+  customer: string; // customer_code (CUS_xxx) or email
+  preferred_bank?: string; // e.g. 'wema-bank', defaults to Paystack's test bank
+}
+
+export interface CreateDedicatedAccountResponse {
+  bank: {
+    name: string;
+    id: number;
+    slug: string;
+  };
+  account_name: string;
+  account_number: string;
+  assigned: boolean;
+  currency: string;
+  active: boolean;
+  id: number;
+  created_at: string;
+  updated_at: string;
+  assignment: {
+    integration: number;
+    assignee_id: number;
+    assignee_type: string;
+    expired: boolean;
+    account_type: string;
+  };
+}
+
+// Client
 
 export class PaystackClient {
   private readonly secretKey: string;
@@ -81,13 +144,7 @@ export class PaystackClient {
     this.logger = logger;
   }
 
-  /**
-   * Resolves a Nigerian bank account.
-   * Confirms the account number is valid and returns the official account name.
-   *
-   * Endpoint: GET /bank/resolve
-   * Docs: https://paystack.com/docs/api/verification/#resolve-account
-   */
+  /** GET /bank/resolve */
   async resolveAccount(input: {
     accountNumber: string;
     bankCode: string;
@@ -102,13 +159,7 @@ export class PaystackClient {
     );
   }
 
-  /**
-   * Creates a transfer recipient. Required before a transfer can be initiated
-   * to a given account.
-   *
-   * Endpoint: POST /transferrecipient
-   * Docs: https://paystack.com/docs/api/transfer-recipient/#create
-   */
+  /** POST /transferrecipient */
   async createTransferRecipient(
     input: CreateTransferRecipientRequest,
   ): Promise<CreateTransferRecipientResponse> {
@@ -119,7 +170,40 @@ export class PaystackClient {
     );
   }
 
-  // ── Internal request method ─────────────────────────────────────
+  /** POST /transaction/initialize - for Paystack Inline checkout */
+  async initializeTransaction(
+    input: InitializeTransactionRequest,
+  ): Promise<InitializeTransactionResponse> {
+    return await this.request<InitializeTransactionResponse>(
+      'POST',
+      '/transaction/initialize',
+      input,
+    );
+  }
+
+  /** POST /customer - creates a Paystack customer record (needed for DVA) */
+  async createCustomer(
+    input: CreateCustomerRequest,
+  ): Promise<CreateCustomerResponse> {
+    return await this.request<CreateCustomerResponse>(
+      'POST',
+      '/customer',
+      input,
+    );
+  }
+
+  /** POST /dedicated_account - creates a virtual NUBAN for a customer */
+  async createDedicatedAccount(
+    input: CreateDedicatedAccountRequest,
+  ): Promise<CreateDedicatedAccountResponse> {
+    return await this.request<CreateDedicatedAccountResponse>(
+      'POST',
+      '/dedicated_account',
+      input,
+    );
+  }
+
+  // Internal request method
 
   private async request<T>(
     method: 'GET' | 'POST',
@@ -164,7 +248,7 @@ export class PaystackClient {
     let envelope: PaystackEnvelope<T>;
     try {
       envelope = await response.json() as PaystackEnvelope<T>;
-    } catch (err) {
+    } catch (_err) {
       this.logger.error('Paystack returned non-JSON response', {
         path,
         method,
@@ -185,7 +269,6 @@ export class PaystackClient {
     });
 
     if (!response.ok || !envelope.status) {
-      // Paystack returns 4xx with { status: false, message: '...' }
       const code: ErrorCode = response.status >= 500
         ? 'PAYSTACK_UNAVAILABLE'
         : 'PAYSTACK_ERROR';

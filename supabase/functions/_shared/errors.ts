@@ -23,6 +23,7 @@ export type ErrorCode =
   | 'RESPONDENT_NOT_FOUND'
   | 'PAYMENT_METHOD_NOT_FOUND'
   | 'WITHDRAWAL_NOT_FOUND'
+  | 'CAMPAIGN_NOT_FOUND'
   // Conflict / duplicate (409)
   | 'DUPLICATE_RECIPIENT'
   | 'DUPLICATE_WITHDRAWAL'
@@ -33,6 +34,8 @@ export type ErrorCode =
   | 'BELOW_MINIMUM_WITHDRAWAL'
   | 'ABOVE_MAXIMUM_WITHDRAWAL'
   | 'BANK_NAME_MISMATCH'
+  | 'INVALID_CAMPAIGN_STATE'
+  | 'MISSING_PLANNED_REACH'
   // Rate limit (429)
   | 'RATE_LIMITED'
   // Upstream services (502, 503)
@@ -51,7 +54,7 @@ export interface SerializedError {
 }
 
 /**
- * Base class. Don't throw this directly — use one of the subclasses.
+ * Base class. Don't throw this directly - use one of the subclasses.
  */
 export class AppError extends Error {
   constructor(
@@ -94,7 +97,7 @@ export class UnauthorizedError extends AppError {
 }
 
 export class NotFoundError extends AppError {
-  constructor(code: Extract<ErrorCode, 'RESPONDENT_NOT_FOUND' | 'PAYMENT_METHOD_NOT_FOUND' | 'WITHDRAWAL_NOT_FOUND'>, message: string) {
+  constructor(code: Extract<ErrorCode, 'RESPONDENT_NOT_FOUND' | 'PAYMENT_METHOD_NOT_FOUND' | 'WITHDRAWAL_NOT_FOUND' | 'CAMPAIGN_NOT_FOUND'>, message: string) {
     super(code, message, 404);
   }
 }
@@ -107,7 +110,7 @@ export class ConflictError extends AppError {
 
 export class BusinessRuleError extends AppError {
   constructor(
-    code: Extract<ErrorCode, 'INSUFFICIENT_BALANCE' | 'DAILY_LIMIT_EXCEEDED' | 'BELOW_MINIMUM_WITHDRAWAL' | 'ABOVE_MAXIMUM_WITHDRAWAL' | 'BANK_NAME_MISMATCH'>,
+    code: Extract<ErrorCode, 'INSUFFICIENT_BALANCE' | 'DAILY_LIMIT_EXCEEDED' | 'BELOW_MINIMUM_WITHDRAWAL' | 'ABOVE_MAXIMUM_WITHDRAWAL' | 'BANK_NAME_MISMATCH' | 'INVALID_CAMPAIGN_STATE' | 'MISSING_PLANNED_REACH' | 'INVALID_AMOUNT'>,
     message: string,
     details?: Record<string, unknown>,
   ) {
