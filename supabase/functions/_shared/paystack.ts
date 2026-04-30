@@ -7,6 +7,7 @@
  *   - Timeouts (15s hard limit)
  *   - Error mapping (Paystack 4xx -> typed PaystackError)
  *   - Network failure handling -> PaystackUnavailableError
+ *   - HMAC SHA-512 webhook signature verification
  *
  * NEVER call fetch() against api.paystack.co directly - always go through
  * this client so errors are uniform and credentials never leak.
@@ -284,4 +285,87 @@ export class PaystackClient {
 
     return envelope.data;
   }
+}
+
+// === Webhook signature verification ===
+//
+// Paystack signs each webhook with HMAC SHA-512 of the raw request body,
+// using your secret key as the HMAC key. The hex-encoded digest arrives
+// in the x-paystack-signature header. We re-compute it and compare in
+// constant time (external attackers can't submit forged webhooks without
+// knowing the secret key).
+
+/**
+ * Constant-time equality check for two hex-encoded digests.
+ * Never exits early on first differing character - required to prevent
+ * timing attacks where an attacker guesses signature bytes by measuring
+ * response time.
+ */
+export function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Length mismatch is safe to exit early for (length isn't secret).
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+/**
+ * Converts an ArrayBuffer to lowercase hex string.
+ */
+export function bufferToHex(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chars = new Array(bytes.length * 2);
+  for (let i = 0; i < bytes.length; i++) {
+    const hex = bytes[i].toString(16).padStart(2, '0');
+    chars[i * 2] = hex[0];
+    chars[i * 2 + 1] = hex[1];
+  }
+  return chars.join('');
+}
+
+/**
+ * Verifies a Paystack webhook signature.
+ *
+ * @param rawBody The exact bytes of the incoming POST body (not a re-serialized object).
+ * @param receivedSignature The value of x-paystack-signature header (hex string).
+ * @returns true iff the signature is valid.
+ *
+ * Throws InternalError if PAYSTACK_SECRET_KEY is not configured.
+ */
+export async function verifyWebhookSignature(
+  rawBody: string,
+  receivedSignature: string,
+): Promise<boolean> {
+  const secret = Deno.env.get('PAYSTACK_SECRET_KEY');
+  if (!secret || secret.length === 0) {
+    throw new InternalError('PAYSTACK_SECRET_KEY is not configured');
+  }
+  if (!receivedSignature || receivedSignature.length === 0) {
+    return false;
+  }
+
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const bodyData = encoder.encode(rawBody);
+
+  const hmacKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign'],
+  );
+
+  const signatureBuffer = await crypto.subtle.sign('HMAC', hmacKey, bodyData);
+  const expectedSignature = bufferToHex(signatureBuffer);
+
+  // Paystack returns the hex in lowercase but normalize just in case.
+  return constantTimeEqual(
+    expectedSignature.toLowerCase(),
+    receivedSignature.toLowerCase(),
+  );
 }
