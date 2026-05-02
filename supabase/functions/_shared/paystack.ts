@@ -130,6 +130,49 @@ export interface CreateDedicatedAccountResponse {
   };
 }
 
+/** POST /transfer */
+export interface InitiateTransferRequest {
+  /** Where to debit from. Must be 'balance' for outbound transfers. */
+  source: 'balance';
+  /** Amount in kobo. Positive integer. */
+  amount: number;
+  /** Recipient code from createTransferRecipient (e.g., 'RCP_xxxxx'). */
+  recipient: string;
+  /** Free-text note shown on Paystack dashboard. */
+  reason?: string;
+  /** Optional idempotency reference. If omitted Paystack generates one. */
+  reference?: string;
+}
+
+export interface InitiateTransferResponse {
+  /** Paystack-internal transfer ID. */
+  id: number;
+  /** Stable transfer code, used in webhook dispatch (e.g., 'TRF_xxxxx'). */
+  transfer_code: string;
+  /** Reference (ours or Paystack-generated). Webhooks include this. */
+  reference: string;
+  /** Lifecycle: 'success' | 'pending' | 'otp' | 'failed' | 'reversed' | 'abandoned'. */
+  status: string;
+  amount: number;
+  currency: string;
+  recipient: number;
+  /** Failure detail when status indicates failure. */
+  failures: unknown;
+  reason: string | null;
+  transferred_at: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** POST /transfer/finalize_transfer */
+export interface FinalizeTransferRequest {
+  transfer_code: string;
+  otp: string;
+}
+
+/** Same shape as InitiateTransferResponse — Paystack returns the updated transfer. */
+export type FinalizeTransferResponse = InitiateTransferResponse;
+
 // Client
 
 export class PaystackClient {
@@ -200,6 +243,35 @@ export class PaystackClient {
     return await this.request<CreateDedicatedAccountResponse>(
       'POST',
       '/dedicated_account',
+      input,
+    );
+  }
+
+  /** POST /transfer - initiates a payout to a transfer recipient.
+   *  Note: Paystack accounts default to OTP-required for transfers.
+   *  In production you'll want to disable transfer OTP via dashboard
+   *  (Settings -> Preferences -> Disable OTP) so transfers complete
+   *  without manual confirmation. Until then, response.status will be
+   *  'otp' and finalizeTransfer() must be called separately. */
+  async initiateTransfer(
+    input: InitiateTransferRequest,
+  ): Promise<InitiateTransferResponse> {
+    return await this.request<InitiateTransferResponse>(
+      'POST',
+      '/transfer',
+      input,
+    );
+  }
+
+  /** POST /transfer/finalize_transfer - completes an OTP-pending transfer.
+   *  Only needed when the account has transfer OTP enabled. With OTP
+   *  disabled, initiateTransfer() returns 'success' or 'pending' directly. */
+  async finalizeTransfer(
+    input: FinalizeTransferRequest,
+  ): Promise<FinalizeTransferResponse> {
+    return await this.request<FinalizeTransferResponse>(
+      'POST',
+      '/transfer/finalize_transfer',
       input,
     );
   }
