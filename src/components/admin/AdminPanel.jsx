@@ -16,6 +16,16 @@ export default function AdminPanel({ user, onExit }) {
   const [showNewCat, setShowNewCat] = useState(false)
   const [catMsg, setCatMsg] = useState(null)
 
+  // ── Withdrawals admin state ─────────────────────────────────
+  const [withdrawals, setWithdrawals] = useState([])
+  const [wLoading, setWLoading] = useState(false)
+  const [wFilter, setWFilter] = useState('pending_approval')
+  const [wActioning, setWActioning] = useState(null)
+  const [rejectModal, setRejectModal] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [wMsg, setWMsg] = useState(null)
+  const showWMsg = (msg, type = 'success') => { setWMsg({ msg, type }); setTimeout(() => setWMsg(null), 4000) }
+
   if (user?.email !== ADMIN_EMAIL) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg }}>
@@ -42,7 +52,8 @@ export default function AdminPanel({ user, onExit }) {
 
   useEffect(() => {
     if (tab === 'categories') loadCategories()
-  }, [tab])
+    if (tab === 'withdrawals') loadWithdrawals()
+  }, [tab, wFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCategories = async () => {
     setCatLoading(true)
@@ -73,6 +84,78 @@ export default function AdminPanel({ user, onExit }) {
     showMsg(`${cat.name} deleted`)
   }
 
+  // ── Withdrawals actions ─────────────────────────────────────
+  const loadWithdrawals = async () => {
+    setWLoading(true)
+    let q = supabase
+      .from('withdrawals')
+      .select(`
+        id, status, amount_kobo, requested_at, approved_at, approved_by,
+        failure_reason, paystack_transfer_code, paystack_reference,
+        respondent_id, payment_method_id,
+        respondents!inner(id, email, full_name),
+        respondent_payment_methods!inner(id, bank_name, account_number, verified_account_name, paystack_recipient_code, is_active)
+      `)
+      .order('requested_at', { ascending: false })
+      .limit(100)
+    if (wFilter !== 'all') q = q.eq('status', wFilter)
+    const { data, error } = await q
+    if (error) showWMsg(`Failed to load: ${error.message}`, 'error')
+    setWithdrawals(data ?? [])
+    setWLoading(false)
+  }
+
+  const handleApproveWithdrawal = async (w) => {
+    if (!confirm(`Approve withdrawal of ₦${(w.amount_kobo / 100).toLocaleString()} to ${w.respondents.email}?\n\nThis will initiate a Paystack transfer immediately.`)) return
+    setWActioning(w.id)
+    try {
+      const { data, error } = await supabase.functions.invoke('approve-withdrawal', {
+        body: { action: 'approve', withdrawalId: w.id },
+      })
+      if (error) {
+        const body = await error.context?.json?.().catch(() => null)
+        throw new Error(body?.error?.message || error.message || 'Approval failed')
+      }
+      showWMsg(`Approved — Paystack status: ${data?.paystackStatus ?? 'pending'}`)
+      await loadWithdrawals()
+    } catch (e) {
+      showWMsg(e.message, 'error')
+    }
+    setWActioning(null)
+  }
+
+  const handleRejectWithdrawal = async () => {
+    if (!rejectModal) return
+    if (rejectReason.trim().length < 3) { showWMsg('Reason required (min 3 chars)', 'error'); return }
+    setWActioning(rejectModal.id)
+    try {
+      const { error } = await supabase.functions.invoke('approve-withdrawal', {
+        body: { action: 'reject', withdrawalId: rejectModal.id, rejectionReason: rejectReason.trim() },
+      })
+      if (error) {
+        const body = await error.context?.json?.().catch(() => null)
+        throw new Error(body?.error?.message || error.message || 'Rejection failed')
+      }
+      showWMsg('Rejected and refunded')
+      setRejectModal(null)
+      setRejectReason('')
+      await loadWithdrawals()
+    } catch (e) {
+      showWMsg(e.message, 'error')
+    }
+    setWActioning(null)
+  }
+
+  const wStatusColor = (s) => ({
+    pending_approval: C.gold,
+    approved:         C.blue,
+    transferring:     C.blue,
+    completed:        C.green,
+    failed:           '#ef4444',
+    cancelled:        C.muted,
+    refunded:         C.muted,
+  }[s] ?? C.muted)
+
   const handleAddCategory = async () => {
     if (!newCat.code || !newCat.name || !newCat.sector_code || !newCat.sector_name) return showMsg('All fields required', 'error')
     const { error } = await supabase.from('categories').insert({ ...newCat, sort_order: categories.length + 1 })
@@ -87,7 +170,7 @@ export default function AdminPanel({ user, onExit }) {
   const activeCampaigns = campaigns.filter(c => c.status === 'active').length
   const statusColor = s => ({ active: C.green, draft: C.muted, paused: C.orange, completed: C.blue }[s] ?? C.muted)
 
-  const TABS = ['overview', 'categories']
+  const TABS = ['overview', 'categories', 'withdrawals']
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg }}>
@@ -259,6 +342,134 @@ export default function AdminPanel({ user, onExit }) {
                   </tbody>
                 </table>
               </Card>
+            )}
+          </>
+        )}
+
+        {/* ── WITHDRAWALS TAB ── */}
+        {tab === 'withdrawals' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <Eyebrow style={{ marginBottom: '6px' }}>Respondent Payouts</Eyebrow>
+                <h2 style={{ fontSize: '24px', fontFamily: F.display, fontWeight: 700 }}>Withdrawals</h2>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[
+                  { k: 'pending_approval', label: 'Pending' },
+                  { k: 'transferring',     label: 'Processing' },
+                  { k: 'completed',        label: 'Completed' },
+                  { k: 'failed',           label: 'Failed' },
+                  { k: 'cancelled',        label: 'Cancelled' },
+                  { k: 'all',              label: 'All' },
+                ].map(f => (
+                  <button key={f.k} onClick={() => setWFilter(f.k)}
+                    style={{ background: wFilter === f.k ? C.goldDim : 'none', border: `1px solid ${wFilter === f.k ? C.gold + '40' : C.border}`, color: wFilter === f.k ? C.gold : C.muted, padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontFamily: F.sans, cursor: 'pointer' }}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {wMsg && (
+              <div style={{ padding: '12px 16px', borderRadius: '10px', background: wMsg.type === 'error' ? '#ef444420' : C.green + '20', border: `1px solid ${wMsg.type === 'error' ? '#ef4444' : C.green}40`, color: wMsg.type === 'error' ? '#ef4444' : C.green, fontFamily: F.sans, fontSize: '13px', marginBottom: '16px' }}>
+                {wMsg.msg}
+              </div>
+            )}
+
+            {wLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}><Spinner size={28} /></div>
+            ) : withdrawals.length === 0 ? (
+              <Card style={{ padding: '48px', textAlign: 'center', color: C.muted, fontFamily: F.sans, fontSize: '14px' }}>
+                No withdrawals match this filter.
+              </Card>
+            ) : (
+              <Card style={{ padding: '0', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F.sans }}>
+                  <thead>
+                    <tr style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                      {['Respondent', 'Amount', 'Bank', 'Requested', 'Status', 'Actions'].map(h => (
+                        <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 600, color: C.muted, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {withdrawals.map((w, i) => {
+                      const pm = w.respondent_payment_methods
+                      const r = w.respondents
+                      const naira = Number(w.amount_kobo) / 100
+                      const isPending = w.status === 'pending_approval'
+                      const busy = wActioning === w.id
+                      return (
+                        <tr key={w.id} style={{ borderBottom: i < withdrawals.length - 1 ? `1px solid ${C.border}` : 'none', background: i % 2 === 0 ? 'transparent' : C.surface + '40' }}>
+                          <td style={{ padding: '14px 16px', fontSize: '13px' }}>
+                            <p style={{ margin: '0 0 2px', color: C.text, fontWeight: 600 }}>{r?.full_name || '—'}</p>
+                            <p style={{ margin: 0, color: C.muted, fontSize: '11px' }}>{r?.email}</p>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: '14px', color: C.gold, fontFamily: F.display, fontWeight: 700 }}>₦{naira.toLocaleString()}</td>
+                          <td style={{ padding: '14px 16px', fontSize: '12px', color: C.muted }}>
+                            <p style={{ margin: '0 0 2px', color: C.text }}>{pm?.bank_name}</p>
+                            <p style={{ margin: 0, fontFamily: 'monospace' }}>{pm?.account_number}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: '11px' }}>{pm?.verified_account_name}</p>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: '12px', color: C.muted }}>
+                            {new Date(w.requested_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <Badge color={wStatusColor(w.status)}>{w.status.replace(/_/g, ' ')}</Badge>
+                            {w.failure_reason && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#ef4444', maxWidth: '200px' }}>{w.failure_reason}</p>}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            {isPending ? (
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={() => handleApproveWithdrawal(w)} disabled={busy}
+                                  style={{ padding: '6px 12px', fontSize: '12px', fontFamily: F.sans, background: C.green + '20', border: `1px solid ${C.green}60`, borderRadius: '6px', color: C.green, cursor: busy ? 'wait' : 'pointer', fontWeight: 600 }}>
+                                  {busy ? '…' : 'Approve'}
+                                </button>
+                                <button onClick={() => setRejectModal({ id: w.id, amount_kobo: w.amount_kobo, email: r?.email })} disabled={busy}
+                                  style={{ padding: '6px 12px', fontSize: '12px', fontFamily: F.sans, background: 'none', border: '1px solid #ef444460', borderRadius: '6px', color: '#ef4444', cursor: busy ? 'wait' : 'pointer' }}>
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: C.muted, fontFamily: 'monospace' }}>
+                                {w.paystack_transfer_code ? w.paystack_transfer_code.slice(0, 16) + '…' : '—'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </Card>
+            )}
+
+            {/* Reject modal */}
+            {rejectModal && (
+              <div onClick={() => !wActioning && setRejectModal(null)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                <div onClick={e => e.stopPropagation()}
+                  style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '24px', width: '100%', maxWidth: '480px' }}>
+                  <h3 style={{ fontSize: '18px', fontFamily: F.display, fontWeight: 700, marginBottom: '6px' }}>Reject Withdrawal</h3>
+                  <p style={{ fontSize: '13px', color: C.muted, marginBottom: '16px' }}>
+                    Refund ₦{(rejectModal.amount_kobo / 100).toLocaleString()} to {rejectModal.email}'s available balance and mark the request cancelled.
+                  </p>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: C.muted, letterSpacing: '0.3px', marginBottom: '6px', textTransform: 'uppercase' }}>Reason (visible to respondent)</label>
+                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                    placeholder="e.g. Account name mismatch — please re-verify your bank details"
+                    rows={3} maxLength={500}
+                    style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '10px 12px', color: C.text, fontSize: '13px', fontFamily: F.sans, outline: 'none', boxSizing: 'border-box', marginBottom: '14px', resize: 'vertical' }} />
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => setRejectModal(null)} disabled={!!wActioning}
+                      style={{ flex: 1, padding: '11px', background: 'none', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.muted, fontSize: '13px', fontFamily: F.sans, cursor: wActioning ? 'wait' : 'pointer' }}>Cancel</button>
+                    <button onClick={handleRejectWithdrawal} disabled={!!wActioning}
+                      style={{ flex: 1.4, padding: '11px', background: '#ef4444', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '13px', fontFamily: F.sans, fontWeight: 700, cursor: wActioning ? 'wait' : 'pointer', opacity: wActioning ? 0.7 : 1 }}>
+                      {wActioning ? 'Processing…' : 'Reject & Refund'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </>
         )}
