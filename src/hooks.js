@@ -34,7 +34,15 @@ export function useBrands() {
 }
 
 export async function createBrand(payload) {
-  const { data, error } = await supabase.from('brands').insert(payload).select().single()
+  // Auto-inject user_id from current session so RLS policy `brands_owner_full`
+  // (USING: user_id = auth.uid() OR super-admin) accepts the insert.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Must be authenticated to create a brand')
+  const { data, error } = await supabase
+    .from('brands')
+    .insert({ ...payload, user_id: user.id })
+    .select()
+    .single()
   if (error) throw error
   return data
 }
@@ -73,10 +81,14 @@ export function useCampaign(campaignId) {
 }
 
 export async function createCampaign(payload) {
+  // Auto-inject user_id from current session so RLS policy `campaigns_all`
+  // (USING: user_id = auth.uid() OR super-admin) accepts the insert.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Must be authenticated to create a campaign')
   const slug = generateSlug(payload.name, payload.brand_id)
   const { data, error } = await supabase
     .from('campaigns')
-    .insert({ ...payload, survey_slug: slug, status: 'draft' })
+    .insert({ ...payload, survey_slug: slug, status: 'draft', user_id: user.id })
     .select('*, brands(*)')
     .single()
   if (error) throw error
