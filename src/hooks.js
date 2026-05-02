@@ -6,6 +6,21 @@ import {
   fetchEmotionData, fetchChannelData, fetchSegmentBreakdown,
 } from '../lib/responses.js'
 
+// ── Constants ──────────────────────────────────────────────────────
+// Super-admin UUID. Mirrors the value baked into the brands_owner_full and
+// campaigns_all RLS policies. Updating either side requires updating the other.
+const SUPER_ADMIN_USER_ID = '4a05e9c5-005b-4dba-8160-5b3354c5df37'
+
+// Returns the current user, or null if not authenticated.
+async function getCurrentUser() {
+  const { data: { user } } = await supabase.auth.getUser()
+  return user ?? null
+}
+
+function isSuperAdmin(user) {
+  return user?.id === SUPER_ADMIN_USER_ID
+}
+
 // ── Utility ────────────────────────────────────────────────────────
 function useAsync(asyncFn, deps = []) {
   const [data,    setData]    = useState(null)
@@ -24,10 +39,21 @@ function useAsync(asyncFn, deps = []) {
 }
 
 // ── BRANDS ─────────────────────────────────────────────────────────
+// Lists brands owned by the current user. Super-admin sees all brands.
+// Anonymous (signed-out) users get an empty list.
 export function useBrands() {
   return useAsync(async () => {
-    const { data, error } = await supabase
-      .from('brands').select('*').order('created_at', { ascending: false })
+    const user = await getCurrentUser()
+    if (!user) return []
+
+    let q = supabase
+      .from('brands')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!isSuperAdmin(user)) {
+      q = q.eq('user_id', user.id)
+    }
+    const { data, error } = await q
     if (error) throw error
     return data ?? []
   }, [])
@@ -36,7 +62,7 @@ export function useBrands() {
 export async function createBrand(payload) {
   // Auto-inject user_id from current session so RLS policy `brands_owner_full`
   // (USING: user_id = auth.uid() OR super-admin) accepts the insert.
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) throw new Error('Must be authenticated to create a brand')
   const { data, error } = await supabase
     .from('brands')
@@ -54,12 +80,21 @@ export async function updateBrand(id, payload) {
 }
 
 // ── CAMPAIGNS ──────────────────────────────────────────────────────
+// Lists campaigns owned by the current user. Super-admin sees all campaigns.
+// Anonymous (signed-out) users get an empty list.
+// Optional brandId filter narrows further to a single brand's campaigns.
 export function useCampaigns(brandId = null) {
   return useAsync(async () => {
+    const user = await getCurrentUser()
+    if (!user) return []
+
     let q = supabase
       .from('campaigns')
       .select('*, brands(name, category, logo_char, color)')
       .order('created_at', { ascending: false })
+    if (!isSuperAdmin(user)) {
+      q = q.eq('user_id', user.id)
+    }
     if (brandId) q = q.eq('brand_id', brandId)
     const { data, error } = await q
     if (error) throw error
@@ -83,7 +118,7 @@ export function useCampaign(campaignId) {
 export async function createCampaign(payload) {
   // Auto-inject user_id from current session so RLS policy `campaigns_all`
   // (USING: user_id = auth.uid() OR super-admin) accepts the insert.
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) throw new Error('Must be authenticated to create a campaign')
   const slug = generateSlug(payload.name, payload.brand_id)
   const { data, error } = await supabase
