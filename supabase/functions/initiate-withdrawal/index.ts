@@ -82,8 +82,7 @@ function getRequestId(logger: Logger): string {
 }
 
 Deno.serve(async (req: Request) => {
-  const corsResponse = handleCorsPreflightRequest(req);
-  if (corsResponse) return corsResponse;
+  if (req.method === 'OPTIONS') return handleCorsPreflightRequest(req);
 
   const logger = createLoggerFromRequest(req, 'initiate-withdrawal');
 
