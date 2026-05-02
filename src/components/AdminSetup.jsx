@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { C, F } from '../tokens.js'
 import { Card, GoldButton, GhostButton, Spinner, Toast } from './shared/ui.jsx'
 import { createCampaign, activateCampaign, uploadAsset, createBrand } from '../hooks.js'
+import { payForCampaign } from '../lib/payment.js'
 import { supabase } from '../lib/supabase.js'
 import CoverageSelector, { PAN_NIGERIA } from './CoverageSelector.jsx'
 import { computeSampleSize, CONFIDENCE_LEVELS, MARGIN_OF_ERROR_OPTIONS } from '../lib/sampleSize.js'
@@ -22,6 +23,16 @@ const BRAND_TYPES = [
   { value: 'services', label: 'Services', desc: 'Intangible offerings — finance, telecoms, hospitality' },
   { value: 'mixed',    label: 'Mixed',    desc: 'Brand that offers both products and services' },
 ]
+
+// Pricing constants — mirror what the backend uses (platform_settings table).
+// Used only for display; the backend is the source of truth at payment time.
+const RESPONDENT_PRICE_NAIRA   = 10_000      // ₦10k per respondent
+const PLATFORM_BASE_FEE_NAIRA  = 1_500_000   // ₦1.5M base fee
+const SAMPLE_SIZE_BUFFER       = 50          // extra responses on top of required
+
+function formatNaira(naira) {
+  return `₦${(naira / 1_000_000).toFixed(2)}M`
+}
 
 async function uploadBrandImage(file, brandId, type) {
   const ext = file.name.split('.').pop()
@@ -64,6 +75,11 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
     confidenceLevel: form.confidenceLevel,
     marginOfError:   form.marginOfError,
   })
+
+  // Live-computed campaign price (mirrors backend formula)
+  // total = (sample_size + buffer) × respondent_price + base_fee
+  const targetSampleSize = requiredSampleSize + SAMPLE_SIZE_BUFFER
+  const totalPriceNaira  = targetSampleSize * RESPONDENT_PRICE_NAIRA + PLATFORM_BASE_FEE_NAIRA
 
   useEffect(() => {
     supabase.from('categories').select('*').eq('is_active', true).order('sort_order').then(({ data }) => setCategories(data ?? []))
@@ -139,10 +155,13 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
     } finally { setUploading(false) }
   }
 
-  const handleUploadAndLaunch = async () => {
+  // Uploads all assets, then triggers Paystack payment.
+  // On successful payment + webhook activation, redirects to the campaign's
+  // insights page using the freshly-activated campaign id passed through setView.
+  const handleUploadAndPay = async () => {
     setUploading(true)
     try {
-      const brand = brands.find(b => b.id === campaign.brand_id) ?? campaign.brands
+      // 1. Upload all campaign assets first.
       const allFiles = [
         ...files.video.map((f, i)  => ({ ...f, type: 'video',  order: i })),
         ...files.audio.map((f, i)  => ({ ...f, type: 'audio',  order: i })),
@@ -151,15 +170,40 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
       for (const { file, label, type, order } of allFiles) {
         await uploadAsset({ brandId: campaign.brand_id, campaignId: campaign.id, assetType: type, file, label: label || file.name, sortOrder: order })
       }
-      const activated = await activateCampaign(campaign.id)
+
+      showToast('Assets uploaded. Opening payment…', 'success')
+
+      // 2. Initialize payment + open Paystack modal + wait for webhook activation.
+      const { activated, bypass } = await payForCampaign(campaign.id)
+
+      const brand = brands.find(b => b.id === campaign.brand_id) ?? activated?.brands ?? campaign.brands
       setActiveBrand(brand ?? { name: form.brandName, logo_char: form.brandName[0], color: '#C9A84C' })
       setActiveCampaign(activated)
-      showToast('Campaign live! Redirecting to insights...', 'success')
-      setTimeout(() => setView('dashboard'), 1800)
+
+      if (bypass) {
+        showToast('Campaign launched (super-admin bypass).', 'success')
+      } else {
+        showToast('Payment confirmed! Campaign is now live.', 'success')
+      }
+      // Pass activated.id explicitly so AppPage's setView doesn't have to read
+      // it from React state (which may not have flushed yet).
+      setTimeout(() => setView('dashboard', activated?.id), 1800)
     } catch (e) {
-      console.error('Launch error:', e)
-      showToast(e.message ?? 'Upload failed. Please try again.', 'error')
-    } finally { setUploading(false) }
+      console.error('Pay & launch error:', e)
+
+      if (e.message === 'PAYMENT_CANCELLED') {
+        showToast('Payment cancelled. Your campaign is saved as draft — you can resume payment anytime.', 'info')
+      } else if (e.message === 'ACTIVATION_TIMEOUT') {
+        showToast('Payment received but activation is taking longer than expected. Check your dashboard in a moment.', 'warning')
+        // Send the user to the platform landing (the dashboard list) since we
+        // don't have a confirmed campaign id to deep-link into.
+        setTimeout(() => setView('platform'), 2500)
+      } else {
+        showToast(e.message ?? 'Something went wrong. Please try again.', 'error')
+      }
+    } finally {
+      setUploading(false)
+    }
   }
 
   const appUrl   = import.meta.env.VITE_APP_URL ?? window.location.origin
@@ -352,17 +396,29 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
             </div>
           </div>
 
-          {/* ── Required sample size preview ── */}
-          <div style={{ padding: '16px', background: `linear-gradient(135deg, ${C.gold}08, ${C.card})`, border: `1px solid ${C.gold}25`, borderRadius: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-            <div>
-              <p style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', margin: '0 0 6px' }}>Required Sample Size</p>
-              <p style={{ fontSize: '36px', fontWeight: 700, fontFamily: F.display, color: C.gold, margin: 0, lineHeight: 1 }}>{requiredSampleSize.toLocaleString()}</p>
+          {/* ── Required sample size + price preview ── */}
+          <div style={{ padding: '16px', background: `linear-gradient(135deg, ${C.gold}08, ${C.card})`, border: `1px solid ${C.gold}25`, borderRadius: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', margin: '0 0 6px' }}>Required Sample Size</p>
+                <p style={{ fontSize: '36px', fontWeight: 700, fontFamily: F.display, color: C.gold, margin: 0, lineHeight: 1 }}>{requiredSampleSize.toLocaleString()}</p>
+              </div>
+              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, lineHeight: 1.7, margin: 0, maxWidth: '260px' }}>
+                Minimum responses for <strong style={{ color: C.text }}>{form.confidenceLevel}%</strong> confidence at <strong style={{ color: C.text }}>±{form.marginOfError}%</strong> margin of error
+                {form.plannedReach ? ` · reach of ${Number(form.plannedReach).toLocaleString()}` : ' (infinite population)'}.
+                Cochran's formula with finite population correction.
+              </p>
             </div>
-            <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, lineHeight: 1.7, margin: 0, maxWidth: '260px' }}>
-              Minimum responses for <strong style={{ color: C.text }}>{form.confidenceLevel}%</strong> confidence at <strong style={{ color: C.text }}>±{form.marginOfError}%</strong> margin of error
-              {form.plannedReach ? ` · reach of ${Number(form.plannedReach).toLocaleString()}` : ' (infinite population)'}.
-              Cochran's formula with finite population correction.
-            </p>
+            <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: `1px dashed ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', margin: '0 0 4px' }}>Estimated Price</p>
+                <p style={{ fontSize: '24px', fontWeight: 700, fontFamily: F.display, color: C.text, margin: 0, lineHeight: 1 }}>{formatNaira(totalPriceNaira)}</p>
+              </div>
+              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, lineHeight: 1.7, margin: 0, maxWidth: '300px' }}>
+                ({targetSampleSize.toLocaleString()} responses × ₦{(RESPONDENT_PRICE_NAIRA / 1000).toLocaleString()}k) + ₦{(PLATFORM_BASE_FEE_NAIRA / 1_000_000).toFixed(1)}M base fee.
+                Includes a {SAMPLE_SIZE_BUFFER}-response buffer.
+              </p>
+            </div>
           </div>
 
           {/* ── Channels ── */}
@@ -441,12 +497,25 @@ export default function AdminSetup({ setView, setActiveBrand, setActiveCampaign,
             </div>
           </Card>
 
+          {/* ── Payment summary card ── */}
+          <Card style={{ background: `linear-gradient(135deg, ${C.gold}10, transparent)`, borderColor: C.gold + '40', marginBottom: '12px', padding: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <p style={{ fontSize: '11px', color: C.gold, fontFamily: F.sans, fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', margin: '0 0 4px' }}>Total Due</p>
+                <p style={{ fontSize: '28px', fontWeight: 700, fontFamily: F.display, color: C.text, margin: 0, lineHeight: 1 }}>{formatNaira(totalPriceNaira)}</p>
+              </div>
+              <p style={{ fontSize: '11px', color: C.muted, fontFamily: F.sans, lineHeight: 1.6, margin: 0, maxWidth: '280px' }}>
+                You'll be redirected to Paystack to complete payment with your card. Your campaign goes live immediately after payment.
+              </p>
+            </div>
+          </Card>
+
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <GhostButton onClick={() => setStep(2)}>← Back</GhostButton>
-            <GoldButton onClick={handleUploadAndLaunch} disabled={uploading} style={{ flex: 1 }}>
+            <GoldButton onClick={handleUploadAndPay} disabled={uploading} style={{ flex: 1 }}>
               {uploading
-                ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Spinner size={14} color={C.bg} /> Uploading & Launching...</span>
-                : '🚀 Launch Campaign'}
+                ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Spinner size={14} color={C.bg} /> Processing...</span>
+                : `💳 Pay ${formatNaira(totalPriceNaira)} & Launch`}
             </GoldButton>
           </div>
         </div>

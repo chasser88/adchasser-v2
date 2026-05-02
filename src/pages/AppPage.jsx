@@ -59,7 +59,17 @@ export default function AppPage({ user, setUser, tab }) {
       )}
       {tab === 'setup' && (
         <AdminSetup
-          setView={v => navigate(v === 'dashboard' ? `/app/insights/${activeCampaign?.id}` : '/app')}
+          // setView accepts an optional campaignId for redirects that need to know
+          // which campaign is being navigated to. Lets the caller pass the freshly
+          // activated campaign ID directly, avoiding stale-closure bugs where
+          // activeCampaign state hasn't propagated yet by the time setView fires.
+          setView={(v, campaignId) =>
+            navigate(
+              v === 'dashboard'
+                ? `/app/insights/${campaignId ?? activeCampaign?.id}`
+                : '/app'
+            )
+          }
           setActiveBrand={setActiveBrand}
           setActiveCampaign={setActiveCampaign}
           brands={brands ?? []}
