@@ -99,6 +99,31 @@ export default function RespondWalletPage({ user }) {
     }).catch(() => setPaymentMethods([]))
   }, [respondent])
 
+  // ── Realtime subscription ────────────────────────────────────
+  // Listens for INSERT/UPDATE on this respondent's withdrawals so the user
+  // sees status flips (pending_approval → transferring → completed) without
+  // needing to refresh. Also refetches earnings on UPDATE since status flips
+  // mutate available_balance (refund) and withdrawn_total (completion).
+  useEffect(() => {
+    if (!respondent?.id) return
+
+    const channel = supabase
+      .channel(`wallet:${respondent.id}`)
+      .on('postgres_changes', {
+        event:  '*',
+        schema: 'public',
+        table:  'withdrawals',
+        filter: `respondent_id=eq.${respondent.id}`,
+      }, () => {
+        // Refetch both — earnings change on refund/completion; withdrawals on any flip.
+        fetchWithdrawals(respondent.id).then(setWithdrawals).catch(() => {})
+        refetch()
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [respondent?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const available   = earnings?.available_balance ?? 0
   const canWithdraw = available >= WITHDRAWAL_MINIMUM
 

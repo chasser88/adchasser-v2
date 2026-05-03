@@ -239,23 +239,3 @@ export async function getCompletionHistory(respondentId) {
     .order('created_at', { ascending: false })
   return data ?? []
 }
-
-// ── Fetch withdrawal history ──────────────────────────────────
-export async function getWithdrawalHistory(respondentId) {
-  const { data } = await supabase
-    .from('withdrawal_requests')
-    .select('*')
-    .eq('respondent_id', respondentId)
-    .order('requested_at', { ascending: false })
-  return data ?? []
-}
-
-// ── Fetch saved payment methods ───────────────────────────────
-export async function getPaymentMethods(respondentId) {
-  const { data } = await supabase
-    .from('respondent_payment_methods')
-    .select('*')
-    .eq('respondent_id', respondentId)
-    .order('is_default', { ascending: false })
-  return data ?? []
-}
